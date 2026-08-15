@@ -53,11 +53,15 @@ class ExportService {
   Future<List<dynamic>> _buildRow(
     Patient p, {
     required bool anonymise,
+    required Map<int, PreChemoAssessment> preMap,
+    required Map<int, PostChemoAssessment> postMap,
+    required Map<int, CytoreductionCtFinding> cytoMap,
+    required Map<int, RelapseFollowup> relapseMap,
   }) async {
-    final pre     = await db.getPreChemo(p.id);
-    final post    = await db.getPostChemo(p.id);
-    final cyto    = await db.getCytoreduction(p.id);
-    final relapse = await db.getRelapse(p.id);
+    final pre     = preMap[p.id];
+    final post    = postMap[p.id];
+    final cyto    = cytoMap[p.id];
+    final relapse = relapseMap[p.id];
 
     return [
       // Patient identity
@@ -132,10 +136,27 @@ class ExportService {
     required String filePrefix,
     required String subject,
   }) async {
-    final patients = await db.getAllPatients();
+    final results = await Future.wait([
+      db.getAllPatients(),
+      db.getAllPreChemos(),
+      db.getAllPostChemos(),
+      db.getAllCytoreductions(),
+      db.getAllRelapses(),
+    ]);
+    final patients   = results[0] as List<Patient>;
+    final preMap     = {for (final r in results[1] as List<PreChemoAssessment>)    r.patientId: r};
+    final postMap    = {for (final r in results[2] as List<PostChemoAssessment>)   r.patientId: r};
+    final cytoMap    = {for (final r in results[3] as List<CytoreductionCtFinding>) r.patientId: r};
+    final relapseMap = {for (final r in results[4] as List<RelapseFollowup>)       r.patientId: r};
+
     final rows = <List<dynamic>>[_headers];
     for (final p in patients) {
-      rows.add(await _buildRow(p, anonymise: anonymise));
+      rows.add(await _buildRow(p,
+          anonymise: anonymise,
+          preMap: preMap,
+          postMap: postMap,
+          cytoMap: cytoMap,
+          relapseMap: relapseMap));
     }
 
     final csv = const ListToCsvConverter().convert(rows);

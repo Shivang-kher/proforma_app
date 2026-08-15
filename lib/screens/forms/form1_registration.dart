@@ -64,6 +64,7 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
       _age.text = p.age.toString();
       _parity.text = p.parity;
       _address.text = p.address ?? '';
+      for (final c in _phones) { c.dispose(); }
       final nums = (p.phone ?? '').split('|').where((s) => s.isNotEmpty).toList();
       _phones = nums.isEmpty
           ? [TextEditingController()]

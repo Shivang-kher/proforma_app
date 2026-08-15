@@ -10,3 +10,11 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 final patientsProvider = StreamProvider<List<Patient>>((ref) {
   return ref.watch(databaseProvider).watchAllPatients();
 });
+
+// Refreshes whenever the patients list changes so filters stay accurate.
+final completionMapProvider =
+    FutureProvider<Map<int, ({bool pre, bool post, bool cyto, bool relapse})>>(
+        (ref) async {
+  ref.watch(patientsProvider); // invalidate when patients stream emits
+  return ref.read(databaseProvider).getCompletionMap();
+});

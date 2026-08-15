@@ -31,7 +31,6 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
   @override
   Widget build(BuildContext context) {
     final patientsAsync = ref.watch(patientsProvider);
-    final db = ref.watch(databaseProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -66,10 +65,9 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
       body: patientsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (patients) => FutureBuilder(
-          future: db.getCompletionMap(),
-          builder: (context, compSnap) {
-            final compMap = compSnap.data ?? {};
+        data: (patients) {
+            final compMap =
+                ref.watch(completionMapProvider).valueOrNull ?? {};
 
             // ── Apply search + filter ──────────────────────
             final filtered = patients.where((p) {
@@ -242,7 +240,6 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
               ],
             );
           },
-        ),
       ),
     );
   }

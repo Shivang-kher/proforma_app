@@ -174,6 +174,9 @@ class AppDatabase extends _$AppDatabase {
   Future<Patient> getPatient(int id) =>
       (select(patients)..where((p) => p.id.equals(id))).getSingle();
 
+  Future<Patient?> getPatientOrNull(int id) =>
+      (select(patients)..where((p) => p.id.equals(id))).getSingleOrNull();
+
   Future<int> insertPatient(PatientsCompanion p) => into(patients).insert(p);
 
   Future<bool> updatePatient(PatientsCompanion p) => update(patients).replace(p);
@@ -181,14 +184,15 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deletePatient(int id) =>
       (delete(patients)..where((p) => p.id.equals(id))).go();
 
-  Future<void> deletePatientCascade(int patientId) async {
-    await (delete(preChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
-    await (delete(postChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
-    await (delete(cytoreductionCtFindings)..where((t) => t.patientId.equals(patientId))).go();
-    await (delete(relapseFollowups)..where((t) => t.patientId.equals(patientId))).go();
-    await (delete(syncQueue)..where((q) => q.patientId.equals(patientId))).go();
-    await (delete(patients)..where((p) => p.id.equals(patientId))).go();
-  }
+  Future<void> deletePatientCascade(int patientId) =>
+      transaction(() async {
+        await (delete(preChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(postChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(cytoreductionCtFindings)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(relapseFollowups)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(syncQueue)..where((q) => q.patientId.equals(patientId))).go();
+        await (delete(patients)..where((p) => p.id.equals(patientId))).go();
+      });
 
   // ── Pre-chemo ──
   Future<PreChemoAssessment?> getPreChemo(int patientId) =>
@@ -214,12 +218,18 @@ class AppDatabase extends _$AppDatabase {
   Future<int> upsertCytoreduction(CytoreductionCtFindingsCompanion entry) =>
       into(cytoreductionCtFindings).insertOnConflictUpdate(entry);
 
-  // ── Bulk queries for insights ──
+  // ── Bulk queries ──
   Future<List<PreChemoAssessment>> getAllPreChemos() =>
       select(preChemoAssessments).get();
 
   Future<List<PostChemoAssessment>> getAllPostChemos() =>
       select(postChemoAssessments).get();
+
+  Future<List<CytoreductionCtFinding>> getAllCytoreductions() =>
+      select(cytoreductionCtFindings).get();
+
+  Future<List<RelapseFollowup>> getAllRelapses() =>
+      select(relapseFollowups).get();
 
   // ── Relapse ──
   Future<RelapseFollowup?> getRelapse(int patientId) =>

@@ -35,15 +35,6 @@ class _InsightsData {
       ? 0
       : hbPairs.map((p) => p.post).reduce((a, b) => a + b) / hbPairs.length;
 
-  double _sd(List<double> vals) {
-    if (vals.length < 2) return 0;
-    final m = vals.reduce((a, b) => a + b) / vals.length;
-    return sqrt(vals.map((v) => pow(v - m, 2)).reduce((a, b) => a + b) /
-        vals.length);
-  }
-
-  double get hbSdPre => _sd(hbPairs.map((p) => p.pre).toList());
-  double get hbSdPost => _sd(hbPairs.map((p) => p.post).toList());
   int get hbImproved => hbPairs.where((p) => p.post > p.pre).length;
   int get hbDeclined => hbPairs.where((p) => p.post < p.pre).length;
 
@@ -449,7 +440,7 @@ class _Ca125DistributionCard extends StatelessWidget {
     final n = buckets.values.reduce((a, b) => a + b);
 
     return _ChartCard(
-      title: 'CA125 Distribution — Pre NACT',
+      title: 'CA125 Distribution — Post NACT',
       subtitle:
           'n = $n patients  ·  median ${data.ca125Median.toStringAsFixed(0)} U/mL',
       height: 220,

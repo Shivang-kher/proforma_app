@@ -53,12 +53,13 @@ class SyncService {
   }
 
   Future<void> enqueue(String table, int patientId) async {
+    if (_db == null) return; // init not yet complete — skip silently
     await _db!.enqueueSync(table, patientId);
     unawaited(_flush());
   }
 
   Future<void> _flush() async {
-    if (_flushing) return;
+    if (_db == null || _flushing) return;
     _flushing = true;
     try {
       final pending = await _db!.getPendingSync();
@@ -82,7 +83,8 @@ class SyncService {
 
     switch (item.syncTable) {
       case 'patients':
-        final p = await db.getPatient(item.patientId);
+        final p = await db.getPatientOrNull(item.patientId);
+        if (p == null) return; // patient deleted before sync could run
         await client.from('patients').upsert({
           'device_id': did,
           'local_id': p.id,
