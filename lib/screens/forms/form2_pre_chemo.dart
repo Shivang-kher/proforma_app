@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../db/database.dart';
 import '../../providers/database_provider.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/form_section_header.dart';
 import '../../widgets/labeled_text_field.dart';
 
@@ -105,6 +107,7 @@ class _Form2PreChemoState extends ConsumerState<Form2PreChemo> {
         sii:            Value(double.tryParse(_sii.text)),
       ),
     );
+    unawaited(SyncService.instance.enqueue('pre_chemo', widget.patientId));
     setState(() => _loading = false);
     if (mounted) context.pop();
   }

@@ -129,6 +129,20 @@ class RelapseFollowups extends Table {
   DateTimeColumn get recordedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+class SyncQueue extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  // 'patients' | 'pre_chemo' | 'post_chemo' | 'cytoreduction' | 'relapse'
+  TextColumn get syncTable => text()();
+  IntColumn get patientId => integer()();
+  BoolColumn get done => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get queuedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {syncTable, patientId},
+      ];
+}
+
 // ── Database ──────────────────────────────────────────────
 
 @DriftDatabase(tables: [
@@ -137,12 +151,20 @@ class RelapseFollowups extends Table {
   PostChemoAssessments,
   CytoreductionCtFindings,
   RelapseFollowups,
+  SyncQueue,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.createTable(syncQueue);
+        },
+      );
 
   // ── Patients ──
   Future<List<Patient>> getAllPatients() => select(patients).get();
@@ -158,6 +180,15 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> deletePatient(int id) =>
       (delete(patients)..where((p) => p.id.equals(id))).go();
+
+  Future<void> deletePatientCascade(int patientId) async {
+    await (delete(preChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
+    await (delete(postChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
+    await (delete(cytoreductionCtFindings)..where((t) => t.patientId.equals(patientId))).go();
+    await (delete(relapseFollowups)..where((t) => t.patientId.equals(patientId))).go();
+    await (delete(syncQueue)..where((q) => q.patientId.equals(patientId))).go();
+    await (delete(patients)..where((p) => p.id.equals(patientId))).go();
+  }
 
   // ── Pre-chemo ──
   Future<PreChemoAssessment?> getPreChemo(int patientId) =>
@@ -197,6 +228,55 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> upsertRelapse(RelapseFollowupsCompanion entry) =>
       into(relapseFollowups).insertOnConflictUpdate(entry);
+
+  // ── Completion map (for patient list strip) ──
+  Future<Map<int, ({bool pre, bool post, bool cyto, bool relapse})>>
+      getCompletionMap() async {
+    final preIds = await (selectOnly(preChemoAssessments)
+          ..addColumns([preChemoAssessments.patientId]))
+        .map((r) => r.read(preChemoAssessments.patientId)!)
+        .get();
+    final postIds = await (selectOnly(postChemoAssessments)
+          ..addColumns([postChemoAssessments.patientId]))
+        .map((r) => r.read(postChemoAssessments.patientId)!)
+        .get();
+    final cytoIds = await (selectOnly(cytoreductionCtFindings)
+          ..addColumns([cytoreductionCtFindings.patientId]))
+        .map((r) => r.read(cytoreductionCtFindings.patientId)!)
+        .get();
+    final relapseIds = await (selectOnly(relapseFollowups)
+          ..addColumns([relapseFollowups.patientId]))
+        .map((r) => r.read(relapseFollowups.patientId)!)
+        .get();
+
+    final allIds = {...preIds, ...postIds, ...cytoIds, ...relapseIds};
+    return {
+      for (final id in allIds)
+        id: (
+          pre: preIds.contains(id),
+          post: postIds.contains(id),
+          cyto: cytoIds.contains(id),
+          relapse: relapseIds.contains(id),
+        ),
+    };
+  }
+
+  // ── Sync queue ──
+  Future<void> enqueueSync(String table, int patientId) =>
+      into(syncQueue).insertOnConflictUpdate(
+        SyncQueueCompanion.insert(
+          syncTable: table,
+          patientId: patientId,
+          done: const Value(false),
+        ),
+      );
+
+  Future<List<SyncQueueData>> getPendingSync() =>
+      (select(syncQueue)..where((q) => q.done.equals(false))).get();
+
+  Future<void> markSyncDone(int id) =>
+      (update(syncQueue)..where((q) => q.id.equals(id)))
+          .write(const SyncQueueCompanion(done: Value(true)));
 }
 
 LazyDatabase _openConnection() {

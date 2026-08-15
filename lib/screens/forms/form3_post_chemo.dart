@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../db/database.dart';
 import '../../providers/database_provider.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/form_section_header.dart';
 import '../../widgets/labeled_text_field.dart';
 import '../../widgets/radio_group.dart' show LabeledRadioGroup;
@@ -99,6 +101,7 @@ class _Form3PostChemoState extends ConsumerState<Form3PostChemo> {
         ca125Reading3:       Value(double.tryParse(_ca125_3.text)),
       ),
     );
+    unawaited(SyncService.instance.enqueue('post_chemo', widget.patientId));
     setState(() => _loading = false);
     if (mounted) context.pop();
   }

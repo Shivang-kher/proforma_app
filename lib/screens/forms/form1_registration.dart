@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../db/database.dart';
 import '../../providers/database_provider.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/form_section_header.dart';
 import '../../widgets/labeled_text_field.dart';
 import '../../widgets/checkbox_group.dart';
@@ -114,9 +116,11 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
 
     if (widget.patientId == null) {
       final newId = await db.insertPatient(companion);
+      unawaited(SyncService.instance.enqueue('patients', newId));
       if (mounted) context.pushReplacement('/patient/$newId');
     } else {
       await db.updatePatient(companion.copyWith(id: Value(widget.patientId!)));
+      unawaited(SyncService.instance.enqueue('patients', widget.patientId!));
       if (mounted) context.pop();
     }
     setState(() => _loading = false);

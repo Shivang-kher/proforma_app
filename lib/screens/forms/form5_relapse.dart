@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../db/database.dart';
 import '../../providers/database_provider.dart';
+import '../../services/sync_service.dart';
 import '../../widgets/form_section_header.dart';
 import '../../widgets/labeled_text_field.dart';
 
@@ -68,6 +70,7 @@ class _Form5RelapseState extends ConsumerState<Form5Relapse> {
         os:             Value(_os.text.trim().isEmpty ? null : _os.text.trim()),
       ),
     );
+    unawaited(SyncService.instance.enqueue('relapse', widget.patientId));
     setState(() => _loading = false);
     if (mounted) context.pop();
   }

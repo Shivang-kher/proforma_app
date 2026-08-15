@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../providers/database_provider.dart';
 import '../../db/database.dart';
-import '../../widgets/completion_badge.dart';
 import '../../services/notification_service.dart';
+import '../../services/sync_service.dart';
+import '../../widgets/completion_badge.dart';
 
 class PatientDetailScreen extends ConsumerWidget {
   const PatientDetailScreen({super.key, required this.patientId});
@@ -117,6 +118,36 @@ class PatientDetailScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Patient patient) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete patient?'),
+        content: Text(
+          'This will permanently delete ${patient.name} and all their form data. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final db = ref.read(databaseProvider);
+    await NotificationService.instance.cancel(patientId);
+    await db.deletePatientCascade(patientId);
+    SyncService.instance.deleteFromCloud(patientId); // fire and forget
+    if (context.mounted) context.go('/');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final db = ref.watch(databaseProvider);
@@ -150,6 +181,11 @@ class PatientDetailScreen extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.edit_rounded),
                 onPressed: () => context.push('/patient/edit/$patientId'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded),
+                tooltip: 'Delete patient',
+                onPressed: () => _confirmDelete(context, ref, patient),
               ),
             ],
           ),
