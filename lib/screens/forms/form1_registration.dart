@@ -32,7 +32,7 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
   final _age = TextEditingController();
   final _parity = TextEditingController();
   final _address = TextEditingController();
-  final _phone = TextEditingController();
+  List<TextEditingController> _phones = [TextEditingController()];
   final _ageMenarche = TextEditingController();
   final _ageMenopause = TextEditingController();
   final _complaintsDetail = TextEditingController();
@@ -64,7 +64,10 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
       _age.text = p.age.toString();
       _parity.text = p.parity;
       _address.text = p.address ?? '';
-      _phone.text = p.phone ?? '';
+      final nums = (p.phone ?? '').split('|').where((s) => s.isNotEmpty).toList();
+      _phones = nums.isEmpty
+          ? [TextEditingController()]
+          : nums.map((n) => TextEditingController(text: n)).toList();
       _menstrualStatus = p.menstrualStatus;
       _ageMenarche.text = p.ageAtMenarche?.toString() ?? '';
       _ageMenopause.text = p.ageAtMenopause?.toString() ?? '';
@@ -92,7 +95,13 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
       age: int.parse(_age.text.trim()),
       parity: _parity.text.trim(),
       address: Value(_address.text.trim().isEmpty ? null : _address.text.trim()),
-      phone: Value(_phone.text.trim().isEmpty ? null : _phone.text.trim()),
+      phone: Value(() {
+        final joined = _phones
+            .map((c) => c.text.trim())
+            .where((s) => s.isNotEmpty)
+            .join('|');
+        return joined.isEmpty ? null : joined;
+      }()),
       menstrualStatus: _menstrualStatus ?? 'premenopausal',
       ageAtMenarche: Value(int.tryParse(_ageMenarche.text)),
       ageAtMenopause: Value(int.tryParse(_ageMenopause.text)),
@@ -149,10 +158,47 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
             ),
             LabeledTextField(label: 'Parity', controller: _parity, required: true),
             LabeledTextField(label: 'Address', controller: _address, maxLines: 2),
-            LabeledTextField(
-              label: 'Phone Number',
-              controller: _phone,
-              keyboardType: TextInputType.phone,
+
+            // ── Phone numbers (dynamic) ──────────────────
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4, top: 8),
+              child: Text('Phone Numbers',
+                  style: Theme.of(context).textTheme.labelLarge),
+            ),
+            ...List.generate(_phones.length, (i) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _phones[i],
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        hintText: i == 0 ? 'Primary number' : 'Additional number',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.phone_rounded, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 14),
+                      ),
+                    ),
+                  ),
+                  if (_phones.length > 1)
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.red),
+                      onPressed: () => setState(() {
+                        _phones[i].dispose();
+                        _phones.removeAt(i);
+                      }),
+                    ),
+                ],
+              ),
+            )),
+            TextButton.icon(
+              onPressed: () =>
+                  setState(() => _phones.add(TextEditingController())),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add number'),
             ),
 
             const FormSectionHeader(title: 'Menstrual Status'),
@@ -290,13 +336,13 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
       _age,
       _parity,
       _address,
-      _phone,
       _ageMenarche,
       _ageMenopause,
       _complaintsDetail,
       _medicalOthers,
       _surgicalOthers,
       _familyOthers,
+      ..._phones,
     ]) {
       c.dispose();
     }

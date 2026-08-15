@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/database_provider.dart';
 import '../../db/database.dart';
 
@@ -249,6 +250,65 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
 
 // ── Widgets ───────────────────────────────────────────────────
 
+class _PhoneRow extends StatelessWidget {
+  const _PhoneRow({required this.phone});
+  final String phone;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = phone.split('|').where((s) => s.isNotEmpty).firstOrNull;
+    if (first == null) return const SizedBox.shrink();
+    final extra = phone.split('|').where((s) => s.isNotEmpty).length - 1;
+    return Row(
+      children: [
+        Icon(Icons.phone_rounded,
+            size: 13, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 4),
+        Text(first,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+        if (extra > 0)
+          Text(' +$extra more',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  )),
+        const SizedBox(width: 6),
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => launchUrl(Uri(scheme: 'tel', path: first)),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.call_rounded,
+                    size: 11,
+                    color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 3),
+                Text('Call',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    )),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _StatChip extends StatelessWidget {
   const _StatChip({required this.label, required this.color});
   final String label;
@@ -366,6 +426,10 @@ class _PatientCard extends StatelessWidget {
               'HN: ${patient.hospitalNumber} · ${patient.age}y · ${patient.menstrualStatus}',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (patient.phone != null && patient.phone!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _PhoneRow(phone: patient.phone!),
+            ],
           ],
         ),
         trailing: Column(
