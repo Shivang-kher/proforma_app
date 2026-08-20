@@ -125,6 +125,28 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
     );
 
     if (widget.patientId == null) {
+      final hn = _hospitalNo.text.trim();
+      final existing = await db.getPatientByHospitalNumber(hn);
+      if (existing != null && mounted) {
+        setState(() => _loading = false);
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Duplicate Hospital Number'),
+            content: Text(
+              'A patient with hospital number "$hn" already exists: ${existing.name}.\n\n'
+              'Please check the patient list — you may be adding a duplicate.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
       final newId = await db.insertPatient(companion);
       unawaited(SyncService.instance.enqueue('patients', newId));
       if (mounted) context.pushReplacement('/patient/$newId');

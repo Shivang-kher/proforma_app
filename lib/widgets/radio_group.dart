@@ -32,10 +32,22 @@ class LabeledRadioGroup extends StatelessWidget {
           Wrap(
             spacing: 8,
             children: options.map((option) {
+              final isSelected = selected == option;
+              final cs = Theme.of(context).colorScheme;
               return ChoiceChip(
                 label: Text(option),
-                selected: selected == option,
+                selected: isSelected,
                 onSelected: (_) => onChanged(option),
+                selectedColor: cs.primary,
+                backgroundColor: cs.surfaceContainerHighest,
+                labelStyle: TextStyle(
+                  color: isSelected ? cs.onPrimary : cs.onSurface,
+                  fontWeight:
+                      isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                side: BorderSide(
+                  color: isSelected ? cs.primary : cs.outlineVariant,
+                ),
               );
             }).toList(),
           ),

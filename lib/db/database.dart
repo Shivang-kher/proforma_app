@@ -271,6 +271,16 @@ class AppDatabase extends _$AppDatabase {
     };
   }
 
+  Future<Patient?> getPatientByHospitalNumber(String hospitalNumber) =>
+      (select(patients)..where((p) => p.hospitalNumber.equals(hospitalNumber)))
+          .getSingleOrNull();
+
+  Future<int> getPatientCount() async {
+    final count = countAll();
+    final result = await (selectOnly(patients)..addColumns([count])).getSingle();
+    return result.read(count) ?? 0;
+  }
+
   // ── Sync queue ──
   Future<void> enqueueSync(String table, int patientId) =>
       into(syncQueue).insertOnConflictUpdate(
