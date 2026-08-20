@@ -22,12 +22,12 @@ class ExportService {
     'Height (cm)', 'Weight (kg)', 'BMI',
     'Pallor', 'Icterus', 'Lymphadenopathy',
     'Abdominal Exam', 'Pelvic Exam', 'Per Rectal Exam', 'Other Exam',
-    'Pre Hb', 'Pre Platelets', 'Pre PLR', 'Pre Albumin',
+    'Pre Hb', 'Pre Platelets', 'Pre Total WBC', 'Pre PLR', 'Pre Albumin',
     'Pre Neutrophil', 'Pre Lymphocyte', 'Pre NLR', 'Pre SII',
     // Post-chemo
     'NACT Cycles', 'NACT Dates', 'NACT Nature', 'Second Line', 'FNAC/Ascitic',
     'Complications', 'Need GCSF', 'Need Blood Transfusion',
-    'Post Hb', 'Post Platelets', 'Post PLR', 'Post Albumin',
+    'Post Hb', 'Post Platelets', 'Post Total WBC', 'Post PLR', 'Post Albumin',
     'Post Neutrophil', 'Post Lymphocyte', 'Post NLR', 'Post SII',
     'CA125 I', 'CA125 II', 'CA125 III',
     // Cytoreduction
@@ -90,9 +90,9 @@ class ExportService {
       pre?.pallor ?? '', pre?.icterus ?? '', pre?.lymphadenopathy ?? '',
       pre?.abdominalExam ?? '', pre?.pelvicExam ?? '',
       pre?.perRectalExam ?? '', pre?.otherExam ?? '',
-      pre?.hemoglobin ?? '', pre?.plateletCount ?? '', pre?.plr ?? '',
-      pre?.albumin ?? '', pre?.neutrophil ?? '', pre?.lymphocyte ?? '',
-      pre?.nlr ?? '', pre?.sii ?? '',
+      pre?.hemoglobin ?? '', pre?.plateletCount ?? '', pre?.totalWbc ?? '',
+      pre?.plr ?? '', pre?.albumin ?? '', pre?.neutrophil ?? '',
+      pre?.lymphocyte ?? '', pre?.nlr ?? '', pre?.sii ?? '',
       // Post-chemo
       post?.nactCycles ?? '', post?.nactDates ?? '', post?.nactNature ?? '',
       post?.secondLine ?? '', post?.fnacAscitic ?? '',
@@ -101,9 +101,9 @@ class ExportService {
       post?.needBloodTransfusion == null
           ? ''
           : (post!.needBloodTransfusion! ? 'Yes' : 'No'),
-      post?.hemoglobin ?? '', post?.plateletCount ?? '', post?.plr ?? '',
-      post?.albumin ?? '', post?.neutrophil ?? '', post?.lymphocyte ?? '',
-      post?.nlr ?? '', post?.sii ?? '',
+      post?.hemoglobin ?? '', post?.plateletCount ?? '', post?.totalWbc ?? '',
+      post?.plr ?? '', post?.albumin ?? '', post?.neutrophil ?? '',
+      post?.lymphocyte ?? '', post?.nlr ?? '', post?.sii ?? '',
       post?.ca125Reading1 ?? '', post?.ca125Reading2 ?? '',
       post?.ca125Reading3 ?? '',
       // Cytoreduction

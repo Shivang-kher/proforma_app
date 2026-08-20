@@ -170,12 +170,16 @@ class AppDatabase extends _$AppDatabase {
           if (from < 2) await m.createTable(syncQueue);
           if (from < 3) {
             await m.addColumn(patients, patients.patientUuid);
-            final existing = await select(patients).get();
-            for (final p in existing) {
-              await (update(patients)..where((t) => t.id.equals(p.id)))
-                  .write(PatientsCompanion(
-                      patientUuid: Value(const Uuid().v4())));
-            }
+            // Wrap in transaction so a crash mid-loop doesn't leave some patients
+            // without a UUID (migration would re-run on next start and complete).
+            await transaction(() async {
+              final existing = await select(patients).get();
+              for (final p in existing) {
+                await (update(patients)..where((t) => t.id.equals(p.id)))
+                    .write(PatientsCompanion(
+                        patientUuid: Value(const Uuid().v4())));
+              }
+            });
           }
           if (from < 4) {
             await m.addColumn(preChemoAssessments, preChemoAssessments.totalWbc);
@@ -311,6 +315,10 @@ class AppDatabase extends _$AppDatabase {
   Future<Patient?> getPatientByUuid(String uuid) =>
       (select(patients)..where((p) => p.patientUuid.equals(uuid)))
           .getSingleOrNull();
+
+  Future<void> patchPatientUuid(int id, String uuid) =>
+      (update(patients)..where((t) => t.id.equals(id)))
+          .write(PatientsCompanion(patientUuid: Value(uuid)));
 
   Future<int> upsertPatientByUuid(PatientsCompanion companion) async {
     final uuid = companion.patientUuid.present ? companion.patientUuid.value : '';

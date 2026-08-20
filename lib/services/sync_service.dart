@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,6 +24,7 @@ class SyncService {
     unawaited(_flush());
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       if (results.any((r) => r != ConnectivityResult.none)) {
+        _subscribeRealtime(); // re-establish subscription lost during network drop
         unawaited(_flush());
       }
     });
@@ -37,6 +39,7 @@ class SyncService {
   // ── Realtime (instant cross-device sync) ──────────────────
 
   void _subscribeRealtime() {
+    _realtimeChannel?.unsubscribe();
     final client = Supabase.instance.client;
     _realtimeChannel = client
         .channel('proforma-sync')
@@ -73,7 +76,9 @@ class SyncService {
         try {
           await _push(item);
           await _db!.markSyncDone(item.id);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Sync] push error: $e');
+        }
       }
       // Pull from Supabase (throttled to once per 10 s).
       final now = DateTime.now();
@@ -81,7 +86,9 @@ class SyncService {
         try {
           await _pullFromCloud();
           _lastPull = now;
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[Sync] pull error: $e');
+        }
       }
     } finally {
       _flushing = false;
@@ -393,7 +400,9 @@ class SyncService {
             .delete()
             .match({'device_id': did, 'local_id': patientId});
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Sync] delete error: $e');
+    }
   }
 
   Future<void> enqueue(String table, int patientId) async {
@@ -411,8 +420,31 @@ class SyncService {
       case 'patients':
         final p = await db.getPatientOrNull(item.patientId);
         if (p == null) return;
+        var effectiveUuid = p.patientUuid;
+        // Guard against UUID divergence from v3 migration: if Supabase already
+        // has an active patient with this hospital number under a different UUID
+        // (because another device ran the migration first and pushed), adopt the
+        // cloud UUID so we update that row instead of creating a duplicate.
+        if (effectiveUuid.isNotEmpty) {
+          final conflicts = await client
+              .from('patients')
+              .select('patient_uuid')
+              .eq('hospital_number', p.hospitalNumber)
+              .neq('patient_uuid', effectiveUuid)
+              .or('is_deleted.is.null,is_deleted.eq.false')
+              .limit(1) as List<dynamic>;
+          if (conflicts.isNotEmpty) {
+            final cloudUuid =
+                (conflicts.first as Map<String, dynamic>)['patient_uuid']
+                    as String?;
+            if (cloudUuid != null && cloudUuid.isNotEmpty) {
+              await db.patchPatientUuid(p.id, cloudUuid);
+              effectiveUuid = cloudUuid;
+            }
+          }
+        }
         await client.from('patients').upsert({
-          'patient_uuid': p.patientUuid.isNotEmpty ? p.patientUuid : null,
+          'patient_uuid': effectiveUuid.isNotEmpty ? effectiveUuid : null,
           'device_id': did,
           'local_id': p.id,
           'is_deleted': false,
