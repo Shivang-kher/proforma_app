@@ -50,6 +50,7 @@ class PreChemoAssessments extends Table {
   TextColumn get otherExam => text().nullable()();
   RealColumn get hemoglobin => real().nullable()();
   RealColumn get plateletCount => real().nullable()();
+  RealColumn get totalWbc => real().nullable()();
   RealColumn get plr => real().nullable()();
   RealColumn get albumin => real().nullable()();
   RealColumn get neutrophil => real().nullable()();
@@ -72,6 +73,7 @@ class PostChemoAssessments extends Table {
   BoolColumn get needBloodTransfusion => boolean().nullable()();
   RealColumn get hemoglobin => real().nullable()();
   RealColumn get plateletCount => real().nullable()();
+  RealColumn get totalWbc => real().nullable()();
   RealColumn get plr => real().nullable()();
   RealColumn get albumin => real().nullable()();
   RealColumn get neutrophil => real().nullable()();
@@ -160,7 +162,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -174,6 +176,10 @@ class AppDatabase extends _$AppDatabase {
                   .write(PatientsCompanion(
                       patientUuid: Value(const Uuid().v4())));
             }
+          }
+          if (from < 4) {
+            await m.addColumn(preChemoAssessments, preChemoAssessments.totalWbc);
+            await m.addColumn(postChemoAssessments, postChemoAssessments.totalWbc);
           }
         },
       );

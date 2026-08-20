@@ -21,24 +21,26 @@ class Form2PreChemo extends ConsumerStatefulWidget {
 class _Form2PreChemoState extends ConsumerState<Form2PreChemo> {
   bool _loading = false;
 
-  final _height         = TextEditingController();
-  final _weight         = TextEditingController();
-  final _bmi            = TextEditingController();
-  final _pallor         = TextEditingController();
-  final _icterus        = TextEditingController();
-  final _lymph          = TextEditingController();
-  final _abdominal      = TextEditingController();
-  final _pelvic         = TextEditingController();
-  final _perRectal      = TextEditingController();
-  final _otherExam      = TextEditingController();
-  final _hb             = TextEditingController();
-  final _platelets      = TextEditingController();
-  final _plr            = TextEditingController();
-  final _albumin        = TextEditingController();
-  final _neutrophil     = TextEditingController();
-  final _lymphocyte     = TextEditingController();
-  final _nlr            = TextEditingController();
-  final _sii            = TextEditingController();
+  final _height     = TextEditingController();
+  final _weight     = TextEditingController();
+  final _bmi        = TextEditingController();
+  final _pallor     = TextEditingController();
+  final _icterus    = TextEditingController();
+  final _lymph      = TextEditingController();
+  final _abdominal  = TextEditingController();
+  final _pelvic     = TextEditingController();
+  final _perRectal  = TextEditingController();
+  final _otherExam  = TextEditingController();
+  final _hb         = TextEditingController();
+  final _platelets  = TextEditingController();
+  final _totalWbc   = TextEditingController();
+  final _albumin    = TextEditingController();
+  final _neutrophil = TextEditingController();
+  final _lymphocyte = TextEditingController();
+  // Read-only — auto-calculated
+  final _nlr        = TextEditingController();
+  final _plr        = TextEditingController();
+  final _sii        = TextEditingController();
 
   @override
   void initState() {
@@ -46,14 +48,43 @@ class _Form2PreChemoState extends ConsumerState<Form2PreChemo> {
     _loadExisting();
     _height.addListener(_calcBmi);
     _weight.addListener(_calcBmi);
+    _platelets.addListener(_calcInflammatory);
+    _totalWbc.addListener(_calcInflammatory);
+    _neutrophil.addListener(_calcInflammatory);
+    _lymphocyte.addListener(_calcInflammatory);
   }
 
   void _calcBmi() {
     final h = double.tryParse(_height.text);
     final w = double.tryParse(_weight.text);
     if (h != null && h > 0 && w != null) {
-      final bmi = w / ((h / 100) * (h / 100));
-      _bmi.text = bmi.toStringAsFixed(1);
+      _bmi.text = (w / ((h / 100) * (h / 100))).toStringAsFixed(1);
+    }
+  }
+
+  void _calcInflammatory() {
+    final plt  = double.tryParse(_platelets.text);
+    final wbc  = double.tryParse(_totalWbc.text);
+    final neut = double.tryParse(_neutrophil.text);
+    final lymp = double.tryParse(_lymphocyte.text);
+
+    if (neut != null && lymp != null && lymp > 0) {
+      _nlr.text = (neut / lymp).toStringAsFixed(2);
+    } else {
+      _nlr.text = '';
+    }
+
+    if (plt != null && wbc != null && lymp != null && lymp > 0) {
+      final absLymp = (lymp / 100) * wbc;
+      _plr.text = absLymp > 0 ? (plt / absLymp).toStringAsFixed(2) : '';
+    } else {
+      _plr.text = '';
+    }
+
+    if (plt != null && neut != null && lymp != null && lymp > 0) {
+      _sii.text = (plt * neut / lymp).toStringAsFixed(2);
+    } else {
+      _sii.text = '';
     }
   }
 
@@ -73,11 +104,12 @@ class _Form2PreChemoState extends ConsumerState<Form2PreChemo> {
       _otherExam.text  = existing.otherExam ?? '';
       _hb.text         = existing.hemoglobin?.toString() ?? '';
       _platelets.text  = existing.plateletCount?.toString() ?? '';
-      _plr.text        = existing.plr?.toString() ?? '';
+      _totalWbc.text   = existing.totalWbc?.toString() ?? '';
       _albumin.text    = existing.albumin?.toString() ?? '';
       _neutrophil.text = existing.neutrophil?.toString() ?? '';
       _lymphocyte.text = existing.lymphocyte?.toString() ?? '';
       _nlr.text        = existing.nlr?.toString() ?? '';
+      _plr.text        = existing.plr?.toString() ?? '';
       _sii.text        = existing.sii?.toString() ?? '';
     });
   }
@@ -86,25 +118,26 @@ class _Form2PreChemoState extends ConsumerState<Form2PreChemo> {
     setState(() => _loading = true);
     await ref.read(databaseProvider).upsertPreChemo(
       PreChemoAssessmentsCompanion.insert(
-        patientId:      widget.patientId,
-        height:         Value(double.tryParse(_height.text)),
-        weight:         Value(double.tryParse(_weight.text)),
-        bmi:            Value(double.tryParse(_bmi.text)),
-        pallor:         Value(_pallor.text.trim().isEmpty ? null : _pallor.text.trim()),
-        icterus:        Value(_icterus.text.trim().isEmpty ? null : _icterus.text.trim()),
+        patientId:       widget.patientId,
+        height:          Value(double.tryParse(_height.text)),
+        weight:          Value(double.tryParse(_weight.text)),
+        bmi:             Value(double.tryParse(_bmi.text)),
+        pallor:          Value(_pallor.text.trim().isEmpty ? null : _pallor.text.trim()),
+        icterus:         Value(_icterus.text.trim().isEmpty ? null : _icterus.text.trim()),
         lymphadenopathy: Value(_lymph.text.trim().isEmpty ? null : _lymph.text.trim()),
-        abdominalExam:  Value(_abdominal.text.trim().isEmpty ? null : _abdominal.text.trim()),
-        pelvicExam:     Value(_pelvic.text.trim().isEmpty ? null : _pelvic.text.trim()),
-        perRectalExam:  Value(_perRectal.text.trim().isEmpty ? null : _perRectal.text.trim()),
-        otherExam:      Value(_otherExam.text.trim().isEmpty ? null : _otherExam.text.trim()),
-        hemoglobin:     Value(double.tryParse(_hb.text)),
-        plateletCount:  Value(double.tryParse(_platelets.text)),
-        plr:            Value(double.tryParse(_plr.text)),
-        albumin:        Value(double.tryParse(_albumin.text)),
-        neutrophil:     Value(double.tryParse(_neutrophil.text)),
-        lymphocyte:     Value(double.tryParse(_lymphocyte.text)),
-        nlr:            Value(double.tryParse(_nlr.text)),
-        sii:            Value(double.tryParse(_sii.text)),
+        abdominalExam:   Value(_abdominal.text.trim().isEmpty ? null : _abdominal.text.trim()),
+        pelvicExam:      Value(_pelvic.text.trim().isEmpty ? null : _pelvic.text.trim()),
+        perRectalExam:   Value(_perRectal.text.trim().isEmpty ? null : _perRectal.text.trim()),
+        otherExam:       Value(_otherExam.text.trim().isEmpty ? null : _otherExam.text.trim()),
+        hemoglobin:      Value(double.tryParse(_hb.text)),
+        plateletCount:   Value(double.tryParse(_platelets.text)),
+        totalWbc:        Value(double.tryParse(_totalWbc.text)),
+        albumin:         Value(double.tryParse(_albumin.text)),
+        neutrophil:      Value(double.tryParse(_neutrophil.text)),
+        lymphocyte:      Value(double.tryParse(_lymphocyte.text)),
+        nlr:             Value(double.tryParse(_nlr.text)),
+        plr:             Value(double.tryParse(_plr.text)),
+        sii:             Value(double.tryParse(_sii.text)),
       ),
     );
     unawaited(SyncService.instance.enqueue('pre_chemo', widget.patientId));
@@ -144,13 +177,14 @@ class _Form2PreChemoState extends ConsumerState<Form2PreChemo> {
 
           const FormSectionHeader(title: 'Blood Investigations — Pre Chemotherapy'),
           _numField('Hemoglobin (g/dL)', _hb),
-          _numField('Platelet Count', _platelets),
-          _numField('PLR (Platelet Lymphocyte Ratio)', _plr),
+          _numField('Platelet Count (K/µL)', _platelets),
+          _numField('Total WBC (K/µL)', _totalWbc),
           _numField('Albumin (g/dL)', _albumin),
-          _numField('Neutrophil', _neutrophil),
-          _numField('Lymphocyte', _lymphocyte),
-          _numField('Neutrophilic Lymphocytic Ratio (NLR)', _nlr),
-          _numField('Systemic Inflammatory Index (SII)', _sii),
+          _numField('Neutrophil (%)', _neutrophil),
+          _numField('Lymphocyte (%)', _lymphocyte),
+          LabeledTextField(label: 'NLR (auto-calculated)', controller: _nlr, readOnly: true),
+          LabeledTextField(label: 'PLR (auto-calculated)', controller: _plr, readOnly: true),
+          LabeledTextField(label: 'SII (auto-calculated)', controller: _sii, readOnly: true),
 
           const SizedBox(height: 32),
           FilledButton.icon(
@@ -169,7 +203,7 @@ class _Form2PreChemoState extends ConsumerState<Form2PreChemo> {
 
   @override
   void dispose() {
-    for (final c in [_height, _weight, _bmi, _pallor, _icterus, _lymph, _abdominal, _pelvic, _perRectal, _otherExam, _hb, _platelets, _plr, _albumin, _neutrophil, _lymphocyte, _nlr, _sii]) {
+    for (final c in [_height, _weight, _bmi, _pallor, _icterus, _lymph, _abdominal, _pelvic, _perRectal, _otherExam, _hb, _platelets, _totalWbc, _albumin, _neutrophil, _lymphocyte, _nlr, _plr, _sii]) {
       c.dispose();
     }
     super.dispose();

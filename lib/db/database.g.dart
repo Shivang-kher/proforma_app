@@ -1435,6 +1435,17 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _totalWbcMeta = const VerificationMeta(
+    'totalWbc',
+  );
+  @override
+  late final GeneratedColumn<double> totalWbc = GeneratedColumn<double>(
+    'total_wbc',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _plrMeta = const VerificationMeta('plr');
   @override
   late final GeneratedColumn<double> plr = GeneratedColumn<double>(
@@ -1523,6 +1534,7 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
     otherExam,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -1638,6 +1650,12 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
         ),
       );
     }
+    if (data.containsKey('total_wbc')) {
+      context.handle(
+        _totalWbcMeta,
+        totalWbc.isAcceptableOrUnknown(data['total_wbc']!, _totalWbcMeta),
+      );
+    }
     if (data.containsKey('plr')) {
       context.handle(
         _plrMeta,
@@ -1745,6 +1763,10 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
         DriftSqlType.double,
         data['${effectivePrefix}platelet_count'],
       ),
+      totalWbc: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}total_wbc'],
+      ),
       plr: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}plr'],
@@ -1798,6 +1820,7 @@ class PreChemoAssessment extends DataClass
   final String? otherExam;
   final double? hemoglobin;
   final double? plateletCount;
+  final double? totalWbc;
   final double? plr;
   final double? albumin;
   final double? neutrophil;
@@ -1820,6 +1843,7 @@ class PreChemoAssessment extends DataClass
     this.otherExam,
     this.hemoglobin,
     this.plateletCount,
+    this.totalWbc,
     this.plr,
     this.albumin,
     this.neutrophil,
@@ -1868,6 +1892,9 @@ class PreChemoAssessment extends DataClass
     }
     if (!nullToAbsent || plateletCount != null) {
       map['platelet_count'] = Variable<double>(plateletCount);
+    }
+    if (!nullToAbsent || totalWbc != null) {
+      map['total_wbc'] = Variable<double>(totalWbc);
     }
     if (!nullToAbsent || plr != null) {
       map['plr'] = Variable<double>(plr);
@@ -1929,6 +1956,9 @@ class PreChemoAssessment extends DataClass
       plateletCount: plateletCount == null && nullToAbsent
           ? const Value.absent()
           : Value(plateletCount),
+      totalWbc: totalWbc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totalWbc),
       plr: plr == null && nullToAbsent ? const Value.absent() : Value(plr),
       albumin: albumin == null && nullToAbsent
           ? const Value.absent()
@@ -1965,6 +1995,7 @@ class PreChemoAssessment extends DataClass
       otherExam: serializer.fromJson<String?>(json['otherExam']),
       hemoglobin: serializer.fromJson<double?>(json['hemoglobin']),
       plateletCount: serializer.fromJson<double?>(json['plateletCount']),
+      totalWbc: serializer.fromJson<double?>(json['totalWbc']),
       plr: serializer.fromJson<double?>(json['plr']),
       albumin: serializer.fromJson<double?>(json['albumin']),
       neutrophil: serializer.fromJson<double?>(json['neutrophil']),
@@ -1992,6 +2023,7 @@ class PreChemoAssessment extends DataClass
       'otherExam': serializer.toJson<String?>(otherExam),
       'hemoglobin': serializer.toJson<double?>(hemoglobin),
       'plateletCount': serializer.toJson<double?>(plateletCount),
+      'totalWbc': serializer.toJson<double?>(totalWbc),
       'plr': serializer.toJson<double?>(plr),
       'albumin': serializer.toJson<double?>(albumin),
       'neutrophil': serializer.toJson<double?>(neutrophil),
@@ -2017,6 +2049,7 @@ class PreChemoAssessment extends DataClass
     Value<String?> otherExam = const Value.absent(),
     Value<double?> hemoglobin = const Value.absent(),
     Value<double?> plateletCount = const Value.absent(),
+    Value<double?> totalWbc = const Value.absent(),
     Value<double?> plr = const Value.absent(),
     Value<double?> albumin = const Value.absent(),
     Value<double?> neutrophil = const Value.absent(),
@@ -2047,6 +2080,7 @@ class PreChemoAssessment extends DataClass
     plateletCount: plateletCount.present
         ? plateletCount.value
         : this.plateletCount,
+    totalWbc: totalWbc.present ? totalWbc.value : this.totalWbc,
     plr: plr.present ? plr.value : this.plr,
     albumin: albumin.present ? albumin.value : this.albumin,
     neutrophil: neutrophil.present ? neutrophil.value : this.neutrophil,
@@ -2083,6 +2117,7 @@ class PreChemoAssessment extends DataClass
       plateletCount: data.plateletCount.present
           ? data.plateletCount.value
           : this.plateletCount,
+      totalWbc: data.totalWbc.present ? data.totalWbc.value : this.totalWbc,
       plr: data.plr.present ? data.plr.value : this.plr,
       albumin: data.albumin.present ? data.albumin.value : this.albumin,
       neutrophil: data.neutrophil.present
@@ -2116,6 +2151,7 @@ class PreChemoAssessment extends DataClass
           ..write('otherExam: $otherExam, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -2143,6 +2179,7 @@ class PreChemoAssessment extends DataClass
     otherExam,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -2169,6 +2206,7 @@ class PreChemoAssessment extends DataClass
           other.otherExam == this.otherExam &&
           other.hemoglobin == this.hemoglobin &&
           other.plateletCount == this.plateletCount &&
+          other.totalWbc == this.totalWbc &&
           other.plr == this.plr &&
           other.albumin == this.albumin &&
           other.neutrophil == this.neutrophil &&
@@ -2193,6 +2231,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
   final Value<String?> otherExam;
   final Value<double?> hemoglobin;
   final Value<double?> plateletCount;
+  final Value<double?> totalWbc;
   final Value<double?> plr;
   final Value<double?> albumin;
   final Value<double?> neutrophil;
@@ -2215,6 +2254,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     this.otherExam = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -2238,6 +2278,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     this.otherExam = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -2261,6 +2302,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     Expression<String>? otherExam,
     Expression<double>? hemoglobin,
     Expression<double>? plateletCount,
+    Expression<double>? totalWbc,
     Expression<double>? plr,
     Expression<double>? albumin,
     Expression<double>? neutrophil,
@@ -2284,6 +2326,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
       if (otherExam != null) 'other_exam': otherExam,
       if (hemoglobin != null) 'hemoglobin': hemoglobin,
       if (plateletCount != null) 'platelet_count': plateletCount,
+      if (totalWbc != null) 'total_wbc': totalWbc,
       if (plr != null) 'plr': plr,
       if (albumin != null) 'albumin': albumin,
       if (neutrophil != null) 'neutrophil': neutrophil,
@@ -2309,6 +2352,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     Value<String?>? otherExam,
     Value<double?>? hemoglobin,
     Value<double?>? plateletCount,
+    Value<double?>? totalWbc,
     Value<double?>? plr,
     Value<double?>? albumin,
     Value<double?>? neutrophil,
@@ -2332,6 +2376,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
       otherExam: otherExam ?? this.otherExam,
       hemoglobin: hemoglobin ?? this.hemoglobin,
       plateletCount: plateletCount ?? this.plateletCount,
+      totalWbc: totalWbc ?? this.totalWbc,
       plr: plr ?? this.plr,
       albumin: albumin ?? this.albumin,
       neutrophil: neutrophil ?? this.neutrophil,
@@ -2387,6 +2432,9 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     if (plateletCount.present) {
       map['platelet_count'] = Variable<double>(plateletCount.value);
     }
+    if (totalWbc.present) {
+      map['total_wbc'] = Variable<double>(totalWbc.value);
+    }
     if (plr.present) {
       map['plr'] = Variable<double>(plr.value);
     }
@@ -2428,6 +2476,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
           ..write('otherExam: $otherExam, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -2588,6 +2637,17 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _totalWbcMeta = const VerificationMeta(
+    'totalWbc',
+  );
+  @override
+  late final GeneratedColumn<double> totalWbc = GeneratedColumn<double>(
+    'total_wbc',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _plrMeta = const VerificationMeta('plr');
   @override
   late final GeneratedColumn<double> plr = GeneratedColumn<double>(
@@ -2707,6 +2767,7 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
     needBloodTransfusion,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -2811,6 +2872,12 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
           data['platelet_count']!,
           _plateletCountMeta,
         ),
+      );
+    }
+    if (data.containsKey('total_wbc')) {
+      context.handle(
+        _totalWbcMeta,
+        totalWbc.isAcceptableOrUnknown(data['total_wbc']!, _totalWbcMeta),
       );
     }
     if (data.containsKey('plr')) {
@@ -2939,6 +3006,10 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
         DriftSqlType.double,
         data['${effectivePrefix}platelet_count'],
       ),
+      totalWbc: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}total_wbc'],
+      ),
       plr: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}plr'],
@@ -3002,6 +3073,7 @@ class PostChemoAssessment extends DataClass
   final bool? needBloodTransfusion;
   final double? hemoglobin;
   final double? plateletCount;
+  final double? totalWbc;
   final double? plr;
   final double? albumin;
   final double? neutrophil;
@@ -3025,6 +3097,7 @@ class PostChemoAssessment extends DataClass
     this.needBloodTransfusion,
     this.hemoglobin,
     this.plateletCount,
+    this.totalWbc,
     this.plr,
     this.albumin,
     this.neutrophil,
@@ -3070,6 +3143,9 @@ class PostChemoAssessment extends DataClass
     }
     if (!nullToAbsent || plateletCount != null) {
       map['platelet_count'] = Variable<double>(plateletCount);
+    }
+    if (!nullToAbsent || totalWbc != null) {
+      map['total_wbc'] = Variable<double>(totalWbc);
     }
     if (!nullToAbsent || plr != null) {
       map['plr'] = Variable<double>(plr);
@@ -3136,6 +3212,9 @@ class PostChemoAssessment extends DataClass
       plateletCount: plateletCount == null && nullToAbsent
           ? const Value.absent()
           : Value(plateletCount),
+      totalWbc: totalWbc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totalWbc),
       plr: plr == null && nullToAbsent ? const Value.absent() : Value(plr),
       albumin: albumin == null && nullToAbsent
           ? const Value.absent()
@@ -3181,6 +3260,7 @@ class PostChemoAssessment extends DataClass
       ),
       hemoglobin: serializer.fromJson<double?>(json['hemoglobin']),
       plateletCount: serializer.fromJson<double?>(json['plateletCount']),
+      totalWbc: serializer.fromJson<double?>(json['totalWbc']),
       plr: serializer.fromJson<double?>(json['plr']),
       albumin: serializer.fromJson<double?>(json['albumin']),
       neutrophil: serializer.fromJson<double?>(json['neutrophil']),
@@ -3209,6 +3289,7 @@ class PostChemoAssessment extends DataClass
       'needBloodTransfusion': serializer.toJson<bool?>(needBloodTransfusion),
       'hemoglobin': serializer.toJson<double?>(hemoglobin),
       'plateletCount': serializer.toJson<double?>(plateletCount),
+      'totalWbc': serializer.toJson<double?>(totalWbc),
       'plr': serializer.toJson<double?>(plr),
       'albumin': serializer.toJson<double?>(albumin),
       'neutrophil': serializer.toJson<double?>(neutrophil),
@@ -3235,6 +3316,7 @@ class PostChemoAssessment extends DataClass
     Value<bool?> needBloodTransfusion = const Value.absent(),
     Value<double?> hemoglobin = const Value.absent(),
     Value<double?> plateletCount = const Value.absent(),
+    Value<double?> totalWbc = const Value.absent(),
     Value<double?> plr = const Value.absent(),
     Value<double?> albumin = const Value.absent(),
     Value<double?> neutrophil = const Value.absent(),
@@ -3264,6 +3346,7 @@ class PostChemoAssessment extends DataClass
     plateletCount: plateletCount.present
         ? plateletCount.value
         : this.plateletCount,
+    totalWbc: totalWbc.present ? totalWbc.value : this.totalWbc,
     plr: plr.present ? plr.value : this.plr,
     albumin: albumin.present ? albumin.value : this.albumin,
     neutrophil: neutrophil.present ? neutrophil.value : this.neutrophil,
@@ -3311,6 +3394,7 @@ class PostChemoAssessment extends DataClass
       plateletCount: data.plateletCount.present
           ? data.plateletCount.value
           : this.plateletCount,
+      totalWbc: data.totalWbc.present ? data.totalWbc.value : this.totalWbc,
       plr: data.plr.present ? data.plr.value : this.plr,
       albumin: data.albumin.present ? data.albumin.value : this.albumin,
       neutrophil: data.neutrophil.present
@@ -3351,6 +3435,7 @@ class PostChemoAssessment extends DataClass
           ..write('needBloodTransfusion: $needBloodTransfusion, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -3379,6 +3464,7 @@ class PostChemoAssessment extends DataClass
     needBloodTransfusion,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -3406,6 +3492,7 @@ class PostChemoAssessment extends DataClass
           other.needBloodTransfusion == this.needBloodTransfusion &&
           other.hemoglobin == this.hemoglobin &&
           other.plateletCount == this.plateletCount &&
+          other.totalWbc == this.totalWbc &&
           other.plr == this.plr &&
           other.albumin == this.albumin &&
           other.neutrophil == this.neutrophil &&
@@ -3432,6 +3519,7 @@ class PostChemoAssessmentsCompanion
   final Value<bool?> needBloodTransfusion;
   final Value<double?> hemoglobin;
   final Value<double?> plateletCount;
+  final Value<double?> totalWbc;
   final Value<double?> plr;
   final Value<double?> albumin;
   final Value<double?> neutrophil;
@@ -3455,6 +3543,7 @@ class PostChemoAssessmentsCompanion
     this.needBloodTransfusion = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -3479,6 +3568,7 @@ class PostChemoAssessmentsCompanion
     this.needBloodTransfusion = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -3503,6 +3593,7 @@ class PostChemoAssessmentsCompanion
     Expression<bool>? needBloodTransfusion,
     Expression<double>? hemoglobin,
     Expression<double>? plateletCount,
+    Expression<double>? totalWbc,
     Expression<double>? plr,
     Expression<double>? albumin,
     Expression<double>? neutrophil,
@@ -3528,6 +3619,7 @@ class PostChemoAssessmentsCompanion
         'need_blood_transfusion': needBloodTransfusion,
       if (hemoglobin != null) 'hemoglobin': hemoglobin,
       if (plateletCount != null) 'platelet_count': plateletCount,
+      if (totalWbc != null) 'total_wbc': totalWbc,
       if (plr != null) 'plr': plr,
       if (albumin != null) 'albumin': albumin,
       if (neutrophil != null) 'neutrophil': neutrophil,
@@ -3554,6 +3646,7 @@ class PostChemoAssessmentsCompanion
     Value<bool?>? needBloodTransfusion,
     Value<double?>? hemoglobin,
     Value<double?>? plateletCount,
+    Value<double?>? totalWbc,
     Value<double?>? plr,
     Value<double?>? albumin,
     Value<double?>? neutrophil,
@@ -3578,6 +3671,7 @@ class PostChemoAssessmentsCompanion
       needBloodTransfusion: needBloodTransfusion ?? this.needBloodTransfusion,
       hemoglobin: hemoglobin ?? this.hemoglobin,
       plateletCount: plateletCount ?? this.plateletCount,
+      totalWbc: totalWbc ?? this.totalWbc,
       plr: plr ?? this.plr,
       albumin: albumin ?? this.albumin,
       neutrophil: neutrophil ?? this.neutrophil,
@@ -3632,6 +3726,9 @@ class PostChemoAssessmentsCompanion
     if (plateletCount.present) {
       map['platelet_count'] = Variable<double>(plateletCount.value);
     }
+    if (totalWbc.present) {
+      map['total_wbc'] = Variable<double>(totalWbc.value);
+    }
     if (plr.present) {
       map['plr'] = Variable<double>(plr.value);
     }
@@ -3680,6 +3777,7 @@ class PostChemoAssessmentsCompanion
           ..write('needBloodTransfusion: $needBloodTransfusion, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -7497,6 +7595,7 @@ typedef $$PreChemoAssessmentsTableCreateCompanionBuilder =
       Value<String?> otherExam,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -7521,6 +7620,7 @@ typedef $$PreChemoAssessmentsTableUpdateCompanionBuilder =
       Value<String?> otherExam,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -7632,6 +7732,11 @@ class $$PreChemoAssessmentsTableFilterComposer
 
   ColumnFilters<double> get plateletCount => $composableBuilder(
     column: $table.plateletCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7768,6 +7873,11 @@ class $$PreChemoAssessmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get plr => $composableBuilder(
     column: $table.plr,
     builder: (column) => ColumnOrderings(column),
@@ -7887,6 +7997,9 @@ class $$PreChemoAssessmentsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get totalWbc =>
+      $composableBuilder(column: $table.totalWbc, builder: (column) => column);
+
   GeneratedColumn<double> get plr =>
       $composableBuilder(column: $table.plr, builder: (column) => column);
 
@@ -7988,6 +8101,7 @@ class $$PreChemoAssessmentsTableTableManager
                 Value<String?> otherExam = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -8010,6 +8124,7 @@ class $$PreChemoAssessmentsTableTableManager
                 otherExam: otherExam,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,
@@ -8034,6 +8149,7 @@ class $$PreChemoAssessmentsTableTableManager
                 Value<String?> otherExam = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -8056,6 +8172,7 @@ class $$PreChemoAssessmentsTableTableManager
                 otherExam: otherExam,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,
@@ -8147,6 +8264,7 @@ typedef $$PostChemoAssessmentsTableCreateCompanionBuilder =
       Value<bool?> needBloodTransfusion,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -8172,6 +8290,7 @@ typedef $$PostChemoAssessmentsTableUpdateCompanionBuilder =
       Value<bool?> needBloodTransfusion,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -8276,6 +8395,11 @@ class $$PostChemoAssessmentsTableFilterComposer
 
   ColumnFilters<double> get plateletCount => $composableBuilder(
     column: $table.plateletCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8417,6 +8541,11 @@ class $$PostChemoAssessmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get plr => $composableBuilder(
     column: $table.plr,
     builder: (column) => ColumnOrderings(column),
@@ -8549,6 +8678,9 @@ class $$PostChemoAssessmentsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get totalWbc =>
+      $composableBuilder(column: $table.totalWbc, builder: (column) => column);
+
   GeneratedColumn<double> get plr =>
       $composableBuilder(column: $table.plr, builder: (column) => column);
 
@@ -8663,6 +8795,7 @@ class $$PostChemoAssessmentsTableTableManager
                 Value<bool?> needBloodTransfusion = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -8686,6 +8819,7 @@ class $$PostChemoAssessmentsTableTableManager
                 needBloodTransfusion: needBloodTransfusion,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,
@@ -8711,6 +8845,7 @@ class $$PostChemoAssessmentsTableTableManager
                 Value<bool?> needBloodTransfusion = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -8734,6 +8869,7 @@ class $$PostChemoAssessmentsTableTableManager
                 needBloodTransfusion: needBloodTransfusion,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,

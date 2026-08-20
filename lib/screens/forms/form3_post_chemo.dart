@@ -22,56 +22,89 @@ class Form3PostChemo extends ConsumerStatefulWidget {
 class _Form3PostChemoState extends ConsumerState<Form3PostChemo> {
   bool _loading = false;
 
-  final _cycles      = TextEditingController();
-  final _dates       = TextEditingController();
-  final _nature      = TextEditingController();
-  final _secondLine  = TextEditingController();
-  final _fnac        = TextEditingController();
+  final _cycles       = TextEditingController();
+  final _dates        = TextEditingController();
+  final _nature       = TextEditingController();
+  final _secondLine   = TextEditingController();
+  final _fnac         = TextEditingController();
   final _complications = TextEditingController();
   bool? _needGcsf;
   bool? _needBlood;
 
-  final _hb          = TextEditingController();
-  final _platelets   = TextEditingController();
-  final _plr         = TextEditingController();
-  final _albumin     = TextEditingController();
-  final _neutrophil  = TextEditingController();
-  final _lymphocyte  = TextEditingController();
-  final _nlr         = TextEditingController();
-  final _sii         = TextEditingController();
-  final _ca125_1     = TextEditingController();
-  final _ca125_2     = TextEditingController();
-  final _ca125_3     = TextEditingController();
+  final _hb         = TextEditingController();
+  final _platelets  = TextEditingController();
+  final _totalWbc   = TextEditingController();
+  final _albumin    = TextEditingController();
+  final _neutrophil = TextEditingController();
+  final _lymphocyte = TextEditingController();
+  // Read-only — auto-calculated
+  final _nlr        = TextEditingController();
+  final _plr        = TextEditingController();
+  final _sii        = TextEditingController();
+  final _ca125_1    = TextEditingController();
+  final _ca125_2    = TextEditingController();
+  final _ca125_3    = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadExisting();
+    _platelets.addListener(_calcInflammatory);
+    _totalWbc.addListener(_calcInflammatory);
+    _neutrophil.addListener(_calcInflammatory);
+    _lymphocyte.addListener(_calcInflammatory);
+  }
+
+  void _calcInflammatory() {
+    final plt  = double.tryParse(_platelets.text);
+    final wbc  = double.tryParse(_totalWbc.text);
+    final neut = double.tryParse(_neutrophil.text);
+    final lymp = double.tryParse(_lymphocyte.text);
+
+    if (neut != null && lymp != null && lymp > 0) {
+      _nlr.text = (neut / lymp).toStringAsFixed(2);
+    } else {
+      _nlr.text = '';
+    }
+
+    if (plt != null && wbc != null && lymp != null && lymp > 0) {
+      final absLymp = (lymp / 100) * wbc;
+      _plr.text = absLymp > 0 ? (plt / absLymp).toStringAsFixed(2) : '';
+    } else {
+      _plr.text = '';
+    }
+
+    if (plt != null && neut != null && lymp != null && lymp > 0) {
+      _sii.text = (plt * neut / lymp).toStringAsFixed(2);
+    } else {
+      _sii.text = '';
+    }
   }
 
   Future<void> _loadExisting() async {
     final e = await ref.read(databaseProvider).getPostChemo(widget.patientId);
     if (e == null) return;
     setState(() {
-      _cycles.text       = e.nactCycles?.toString() ?? '';
-      _dates.text        = e.nactDates ?? '';
-      _nature.text       = e.nactNature ?? '';
-      _secondLine.text   = e.secondLine ?? '';
-      _fnac.text         = e.fnacAscitic ?? '';
+      _cycles.text        = e.nactCycles?.toString() ?? '';
+      _dates.text         = e.nactDates ?? '';
+      _nature.text        = e.nactNature ?? '';
+      _secondLine.text    = e.secondLine ?? '';
+      _fnac.text          = e.fnacAscitic ?? '';
       _complications.text = e.complications ?? '';
       _needGcsf  = e.needGcsf;
       _needBlood = e.needBloodTransfusion;
-      _hb.text        = e.hemoglobin?.toString() ?? '';
-      _platelets.text = e.plateletCount?.toString() ?? '';
-      _plr.text       = e.plr?.toString() ?? '';
-      _albumin.text   = e.albumin?.toString() ?? '';
+      _hb.text         = e.hemoglobin?.toString() ?? '';
+      _platelets.text  = e.plateletCount?.toString() ?? '';
+      _totalWbc.text   = e.totalWbc?.toString() ?? '';
+      _albumin.text    = e.albumin?.toString() ?? '';
       _neutrophil.text = e.neutrophil?.toString() ?? '';
       _lymphocyte.text = e.lymphocyte?.toString() ?? '';
-      _nlr.text       = e.nlr?.toString() ?? '';
-      _sii.text       = e.sii?.toString() ?? '';
-      _ca125_1.text   = e.ca125Reading1?.toString() ?? '';
-      _ca125_2.text   = e.ca125Reading2?.toString() ?? '';
-      _ca125_3.text   = e.ca125Reading3?.toString() ?? '';
+      _nlr.text        = e.nlr?.toString() ?? '';
+      _plr.text        = e.plr?.toString() ?? '';
+      _sii.text        = e.sii?.toString() ?? '';
+      _ca125_1.text    = e.ca125Reading1?.toString() ?? '';
+      _ca125_2.text    = e.ca125Reading2?.toString() ?? '';
+      _ca125_3.text    = e.ca125Reading3?.toString() ?? '';
     });
   }
 
@@ -79,26 +112,27 @@ class _Form3PostChemoState extends ConsumerState<Form3PostChemo> {
     setState(() => _loading = true);
     await ref.read(databaseProvider).upsertPostChemo(
       PostChemoAssessmentsCompanion.insert(
-        patientId:           widget.patientId,
-        nactCycles:          Value(int.tryParse(_cycles.text)),
-        nactDates:           Value(_dates.text.trim().isEmpty ? null : _dates.text.trim()),
-        nactNature:          Value(_nature.text.trim().isEmpty ? null : _nature.text.trim()),
-        secondLine:          Value(_secondLine.text.trim().isEmpty ? null : _secondLine.text.trim()),
-        fnacAscitic:         Value(_fnac.text.trim().isEmpty ? null : _fnac.text.trim()),
-        complications:       Value(_complications.text.trim().isEmpty ? null : _complications.text.trim()),
-        needGcsf:            Value(_needGcsf),
+        patientId:            widget.patientId,
+        nactCycles:           Value(int.tryParse(_cycles.text)),
+        nactDates:            Value(_dates.text.trim().isEmpty ? null : _dates.text.trim()),
+        nactNature:           Value(_nature.text.trim().isEmpty ? null : _nature.text.trim()),
+        secondLine:           Value(_secondLine.text.trim().isEmpty ? null : _secondLine.text.trim()),
+        fnacAscitic:          Value(_fnac.text.trim().isEmpty ? null : _fnac.text.trim()),
+        complications:        Value(_complications.text.trim().isEmpty ? null : _complications.text.trim()),
+        needGcsf:             Value(_needGcsf),
         needBloodTransfusion: Value(_needBlood),
-        hemoglobin:          Value(double.tryParse(_hb.text)),
-        plateletCount:       Value(double.tryParse(_platelets.text)),
-        plr:                 Value(double.tryParse(_plr.text)),
-        albumin:             Value(double.tryParse(_albumin.text)),
-        neutrophil:          Value(double.tryParse(_neutrophil.text)),
-        lymphocyte:          Value(double.tryParse(_lymphocyte.text)),
-        nlr:                 Value(double.tryParse(_nlr.text)),
-        sii:                 Value(double.tryParse(_sii.text)),
-        ca125Reading1:       Value(double.tryParse(_ca125_1.text)),
-        ca125Reading2:       Value(double.tryParse(_ca125_2.text)),
-        ca125Reading3:       Value(double.tryParse(_ca125_3.text)),
+        hemoglobin:           Value(double.tryParse(_hb.text)),
+        plateletCount:        Value(double.tryParse(_platelets.text)),
+        totalWbc:             Value(double.tryParse(_totalWbc.text)),
+        albumin:              Value(double.tryParse(_albumin.text)),
+        neutrophil:           Value(double.tryParse(_neutrophil.text)),
+        lymphocyte:           Value(double.tryParse(_lymphocyte.text)),
+        nlr:                  Value(double.tryParse(_nlr.text)),
+        plr:                  Value(double.tryParse(_plr.text)),
+        sii:                  Value(double.tryParse(_sii.text)),
+        ca125Reading1:        Value(double.tryParse(_ca125_1.text)),
+        ca125Reading2:        Value(double.tryParse(_ca125_2.text)),
+        ca125Reading3:        Value(double.tryParse(_ca125_3.text)),
       ),
     );
     unawaited(SyncService.instance.enqueue('post_chemo', widget.patientId));
@@ -149,13 +183,14 @@ class _Form3PostChemoState extends ConsumerState<Form3PostChemo> {
 
           const FormSectionHeader(title: 'Blood Investigations — Post Chemotherapy'),
           _numField('Hemoglobin (g/dL)', _hb),
-          _numField('Platelet Count', _platelets),
-          _numField('Platelet Lymphocytic Ratio (PLR)', _plr),
+          _numField('Platelet Count (K/µL)', _platelets),
+          _numField('Total WBC (K/µL)', _totalWbc),
           _numField('Albumin (g/dL)', _albumin),
-          _numField('Neutrophil', _neutrophil),
-          _numField('Lymphocyte', _lymphocyte),
-          _numField('Neutrophilic Lymphocytic Ratio (NLR)', _nlr),
-          _numField('Systemic Inflammatory Index (SII)', _sii),
+          _numField('Neutrophil (%)', _neutrophil),
+          _numField('Lymphocyte (%)', _lymphocyte),
+          LabeledTextField(label: 'NLR (auto-calculated)', controller: _nlr, readOnly: true),
+          LabeledTextField(label: 'PLR (auto-calculated)', controller: _plr, readOnly: true),
+          LabeledTextField(label: 'SII (auto-calculated)', controller: _sii, readOnly: true),
 
           const FormSectionHeader(title: 'CA 125 Levels'),
           _numField('CA 125 — Reading I', _ca125_1),
@@ -179,7 +214,7 @@ class _Form3PostChemoState extends ConsumerState<Form3PostChemo> {
 
   @override
   void dispose() {
-    for (final c in [_cycles, _dates, _nature, _secondLine, _fnac, _complications, _hb, _platelets, _plr, _albumin, _neutrophil, _lymphocyte, _nlr, _sii, _ca125_1, _ca125_2, _ca125_3]) {
+    for (final c in [_cycles, _dates, _nature, _secondLine, _fnac, _complications, _hb, _platelets, _totalWbc, _albumin, _neutrophil, _lymphocyte, _nlr, _plr, _sii, _ca125_1, _ca125_2, _ca125_3]) {
       c.dispose();
     }
     super.dispose();

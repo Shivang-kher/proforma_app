@@ -6,9 +6,9 @@ class ShellScreen extends StatelessWidget {
   final Widget child;
 
   static const _tabs = [
-    (icon: Icons.people_rounded,      label: 'Patients',  path: '/'),
-    (icon: Icons.bar_chart_rounded,   label: 'Insights',  path: '/insights'),
-    (icon: Icons.ios_share_rounded,   label: 'Export',    path: '/export'),
+    (icon: Icons.people_rounded,    label: 'Patients', path: '/'),
+    (icon: Icons.bar_chart_rounded, label: 'Insights', path: '/insights'),
+    (icon: Icons.ios_share_rounded, label: 'Export',   path: '/export'),
   ];
 
   @override

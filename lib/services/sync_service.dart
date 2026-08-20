@@ -110,11 +110,11 @@ class SyncService {
       if (local != null) await db.deletePatientCascade(local.id);
     }
 
-    // 2. Active patients.
+    // 2. Active patients (treat NULL is_deleted as false for legacy rows).
     final patientRows = await client
         .from('patients')
         .select()
-        .eq('is_deleted', false) as List<dynamic>;
+        .or('is_deleted.is.null,is_deleted.eq.false') as List<dynamic>;
     if (patientRows.isEmpty) return;
 
     // Fetch all child form tables in parallel.
@@ -238,6 +238,7 @@ class SyncService {
         otherExam: Value(row['other_exam'] as String?),
         hemoglobin: Value(_toDouble(row['hemoglobin'])),
         plateletCount: Value(_toDouble(row['platelet_count'])),
+        totalWbc: Value(_toDouble(row['total_wbc'])),
         plr: Value(_toDouble(row['plr'])),
         albumin: Value(_toDouble(row['albumin'])),
         neutrophil: Value(_toDouble(row['neutrophil'])),
@@ -266,6 +267,7 @@ class SyncService {
         needBloodTransfusion: Value(row['need_blood_transfusion'] as bool?),
         hemoglobin: Value(_toDouble(row['hemoglobin'])),
         plateletCount: Value(_toDouble(row['platelet_count'])),
+        totalWbc: Value(_toDouble(row['total_wbc'])),
         plr: Value(_toDouble(row['plr'])),
         albumin: Value(_toDouble(row['albumin'])),
         neutrophil: Value(_toDouble(row['neutrophil'])),
@@ -456,6 +458,7 @@ class SyncService {
           'other_exam': r.otherExam,
           'hemoglobin': r.hemoglobin,
           'platelet_count': r.plateletCount,
+          'total_wbc': r.totalWbc,
           'plr': r.plr,
           'albumin': r.albumin,
           'neutrophil': r.neutrophil,
@@ -483,6 +486,7 @@ class SyncService {
           'need_blood_transfusion': r.needBloodTransfusion,
           'hemoglobin': r.hemoglobin,
           'platelet_count': r.plateletCount,
+          'total_wbc': r.totalWbc,
           'plr': r.plr,
           'albumin': r.albumin,
           'neutrophil': r.neutrophil,
