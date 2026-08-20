@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../providers/database_provider.dart';
 import '../../db/database.dart';
-import '../../widgets/completion_badge.dart';
 import '../../services/notification_service.dart';
+import '../../services/sync_service.dart';
+import '../../widgets/completion_badge.dart';
 
 class PatientDetailScreen extends ConsumerWidget {
   const PatientDetailScreen({super.key, required this.patientId});
@@ -117,6 +119,36 @@ class PatientDetailScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Patient patient) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete patient?'),
+        content: Text(
+          'This will permanently delete ${patient.name} and all their form data. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final db = ref.read(databaseProvider);
+    await NotificationService.instance.cancel(patientId);
+    await db.deletePatientCascade(patientId);
+    SyncService.instance.deleteFromCloud(patientId); // fire and forget
+    if (context.mounted) context.go('/');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final db = ref.watch(databaseProvider);
@@ -151,6 +183,11 @@ class PatientDetailScreen extends ConsumerWidget {
                 icon: const Icon(Icons.edit_rounded),
                 onPressed: () => context.push('/patient/edit/$patientId'),
               ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded),
+                tooltip: 'Delete patient',
+                onPressed: () => _confirmDelete(context, ref, patient),
+              ),
             ],
           ),
           body: ListView(
@@ -164,6 +201,12 @@ class PatientDetailScreen extends ConsumerWidget {
                   Chip(label: Text('Parity: ${patient.parity}')),
                 ],
               ),
+              // ── Phone numbers ──────────────────────────
+              if (patient.phone != null && patient.phone!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ...(patient.phone!.split('|').where((s) => s.isNotEmpty))
+                    .map((n) => _PhoneTile(number: n)),
+              ],
               const SizedBox(height: 20),
               Text('Data Collection Forms',
                   style: Theme.of(context)
@@ -236,6 +279,38 @@ class PatientDetailScreen extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _PhoneTile extends StatelessWidget {
+  const _PhoneTile({required this.number});
+  final String number;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(Icons.phone_rounded, size: 16, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(number, style: Theme.of(context).textTheme.bodyMedium),
+          const Spacer(),
+          FilledButton.tonalIcon(
+            onPressed: () =>
+                launchUrl(Uri(scheme: 'tel', path: number)),
+            icon: const Icon(Icons.call_rounded, size: 16),
+            label: const Text('Call'),
+            style: FilledButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

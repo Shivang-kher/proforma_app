@@ -233,6 +233,18 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _patientUuidMeta = const VerificationMeta(
+    'patientUuid',
+  );
+  @override
+  late final GeneratedColumn<String> patientUuid = GeneratedColumn<String>(
+    'patient_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -256,6 +268,7 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     familyHistory,
     familyHistoryOthers,
     createdAt,
+    patientUuid,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -453,6 +466,15 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('patient_uuid')) {
+      context.handle(
+        _patientUuidMeta,
+        patientUuid.isAcceptableOrUnknown(
+          data['patient_uuid']!,
+          _patientUuidMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -546,6 +568,10 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      patientUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}patient_uuid'],
+      )!,
     );
   }
 
@@ -577,6 +603,7 @@ class Patient extends DataClass implements Insertable<Patient> {
   final String familyHistory;
   final String? familyHistoryOthers;
   final DateTime createdAt;
+  final String patientUuid;
   const Patient({
     required this.id,
     required this.serialNumber,
@@ -599,6 +626,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     required this.familyHistory,
     this.familyHistoryOthers,
     required this.createdAt,
+    required this.patientUuid,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -640,6 +668,7 @@ class Patient extends DataClass implements Insertable<Patient> {
       map['family_history_others'] = Variable<String>(familyHistoryOthers);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['patient_uuid'] = Variable<String>(patientUuid);
     return map;
   }
 
@@ -682,6 +711,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           ? const Value.absent()
           : Value(familyHistoryOthers),
       createdAt: Value(createdAt),
+      patientUuid: Value(patientUuid),
     );
   }
 
@@ -722,6 +752,7 @@ class Patient extends DataClass implements Insertable<Patient> {
         json['familyHistoryOthers'],
       ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      patientUuid: serializer.fromJson<String>(json['patientUuid']),
     );
   }
   @override
@@ -751,6 +782,7 @@ class Patient extends DataClass implements Insertable<Patient> {
       'familyHistory': serializer.toJson<String>(familyHistory),
       'familyHistoryOthers': serializer.toJson<String?>(familyHistoryOthers),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'patientUuid': serializer.toJson<String>(patientUuid),
     };
   }
 
@@ -776,6 +808,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     String? familyHistory,
     Value<String?> familyHistoryOthers = const Value.absent(),
     DateTime? createdAt,
+    String? patientUuid,
   }) => Patient(
     id: id ?? this.id,
     serialNumber: serialNumber ?? this.serialNumber,
@@ -810,6 +843,7 @@ class Patient extends DataClass implements Insertable<Patient> {
         ? familyHistoryOthers.value
         : this.familyHistoryOthers,
     createdAt: createdAt ?? this.createdAt,
+    patientUuid: patientUuid ?? this.patientUuid,
   );
   Patient copyWithCompanion(PatientsCompanion data) {
     return Patient(
@@ -860,6 +894,9 @@ class Patient extends DataClass implements Insertable<Patient> {
           ? data.familyHistoryOthers.value
           : this.familyHistoryOthers,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      patientUuid: data.patientUuid.present
+          ? data.patientUuid.value
+          : this.patientUuid,
     );
   }
 
@@ -886,7 +923,8 @@ class Patient extends DataClass implements Insertable<Patient> {
           ..write('surgicalHistoryOthers: $surgicalHistoryOthers, ')
           ..write('familyHistory: $familyHistory, ')
           ..write('familyHistoryOthers: $familyHistoryOthers, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('patientUuid: $patientUuid')
           ..write(')'))
         .toString();
   }
@@ -914,6 +952,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     familyHistory,
     familyHistoryOthers,
     createdAt,
+    patientUuid,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -939,7 +978,8 @@ class Patient extends DataClass implements Insertable<Patient> {
           other.surgicalHistoryOthers == this.surgicalHistoryOthers &&
           other.familyHistory == this.familyHistory &&
           other.familyHistoryOthers == this.familyHistoryOthers &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.patientUuid == this.patientUuid);
 }
 
 class PatientsCompanion extends UpdateCompanion<Patient> {
@@ -964,6 +1004,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
   final Value<String> familyHistory;
   final Value<String?> familyHistoryOthers;
   final Value<DateTime> createdAt;
+  final Value<String> patientUuid;
   const PatientsCompanion({
     this.id = const Value.absent(),
     this.serialNumber = const Value.absent(),
@@ -986,6 +1027,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     this.familyHistory = const Value.absent(),
     this.familyHistoryOthers = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.patientUuid = const Value.absent(),
   });
   PatientsCompanion.insert({
     this.id = const Value.absent(),
@@ -1009,6 +1051,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     required String familyHistory,
     this.familyHistoryOthers = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.patientUuid = const Value.absent(),
   }) : serialNumber = Value(serialNumber),
        hospitalNumber = Value(hospitalNumber),
        unit = Value(unit),
@@ -1042,6 +1085,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Expression<String>? familyHistory,
     Expression<String>? familyHistoryOthers,
     Expression<DateTime>? createdAt,
+    Expression<String>? patientUuid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1069,6 +1113,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
       if (familyHistoryOthers != null)
         'family_history_others': familyHistoryOthers,
       if (createdAt != null) 'created_at': createdAt,
+      if (patientUuid != null) 'patient_uuid': patientUuid,
     });
   }
 
@@ -1094,6 +1139,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Value<String>? familyHistory,
     Value<String?>? familyHistoryOthers,
     Value<DateTime>? createdAt,
+    Value<String>? patientUuid,
   }) {
     return PatientsCompanion(
       id: id ?? this.id,
@@ -1118,6 +1164,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
       familyHistory: familyHistory ?? this.familyHistory,
       familyHistoryOthers: familyHistoryOthers ?? this.familyHistoryOthers,
       createdAt: createdAt ?? this.createdAt,
+      patientUuid: patientUuid ?? this.patientUuid,
     );
   }
 
@@ -1195,6 +1242,9 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (patientUuid.present) {
+      map['patient_uuid'] = Variable<String>(patientUuid.value);
+    }
     return map;
   }
 
@@ -1221,7 +1271,8 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
           ..write('surgicalHistoryOthers: $surgicalHistoryOthers, ')
           ..write('familyHistory: $familyHistory, ')
           ..write('familyHistoryOthers: $familyHistoryOthers, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('patientUuid: $patientUuid')
           ..write(')'))
         .toString();
   }
@@ -1384,6 +1435,17 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _totalWbcMeta = const VerificationMeta(
+    'totalWbc',
+  );
+  @override
+  late final GeneratedColumn<double> totalWbc = GeneratedColumn<double>(
+    'total_wbc',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _plrMeta = const VerificationMeta('plr');
   @override
   late final GeneratedColumn<double> plr = GeneratedColumn<double>(
@@ -1472,6 +1534,7 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
     otherExam,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -1587,6 +1650,12 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
         ),
       );
     }
+    if (data.containsKey('total_wbc')) {
+      context.handle(
+        _totalWbcMeta,
+        totalWbc.isAcceptableOrUnknown(data['total_wbc']!, _totalWbcMeta),
+      );
+    }
     if (data.containsKey('plr')) {
       context.handle(
         _plrMeta,
@@ -1694,6 +1763,10 @@ class $PreChemoAssessmentsTable extends PreChemoAssessments
         DriftSqlType.double,
         data['${effectivePrefix}platelet_count'],
       ),
+      totalWbc: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}total_wbc'],
+      ),
       plr: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}plr'],
@@ -1747,6 +1820,7 @@ class PreChemoAssessment extends DataClass
   final String? otherExam;
   final double? hemoglobin;
   final double? plateletCount;
+  final double? totalWbc;
   final double? plr;
   final double? albumin;
   final double? neutrophil;
@@ -1769,6 +1843,7 @@ class PreChemoAssessment extends DataClass
     this.otherExam,
     this.hemoglobin,
     this.plateletCount,
+    this.totalWbc,
     this.plr,
     this.albumin,
     this.neutrophil,
@@ -1817,6 +1892,9 @@ class PreChemoAssessment extends DataClass
     }
     if (!nullToAbsent || plateletCount != null) {
       map['platelet_count'] = Variable<double>(plateletCount);
+    }
+    if (!nullToAbsent || totalWbc != null) {
+      map['total_wbc'] = Variable<double>(totalWbc);
     }
     if (!nullToAbsent || plr != null) {
       map['plr'] = Variable<double>(plr);
@@ -1878,6 +1956,9 @@ class PreChemoAssessment extends DataClass
       plateletCount: plateletCount == null && nullToAbsent
           ? const Value.absent()
           : Value(plateletCount),
+      totalWbc: totalWbc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totalWbc),
       plr: plr == null && nullToAbsent ? const Value.absent() : Value(plr),
       albumin: albumin == null && nullToAbsent
           ? const Value.absent()
@@ -1914,6 +1995,7 @@ class PreChemoAssessment extends DataClass
       otherExam: serializer.fromJson<String?>(json['otherExam']),
       hemoglobin: serializer.fromJson<double?>(json['hemoglobin']),
       plateletCount: serializer.fromJson<double?>(json['plateletCount']),
+      totalWbc: serializer.fromJson<double?>(json['totalWbc']),
       plr: serializer.fromJson<double?>(json['plr']),
       albumin: serializer.fromJson<double?>(json['albumin']),
       neutrophil: serializer.fromJson<double?>(json['neutrophil']),
@@ -1941,6 +2023,7 @@ class PreChemoAssessment extends DataClass
       'otherExam': serializer.toJson<String?>(otherExam),
       'hemoglobin': serializer.toJson<double?>(hemoglobin),
       'plateletCount': serializer.toJson<double?>(plateletCount),
+      'totalWbc': serializer.toJson<double?>(totalWbc),
       'plr': serializer.toJson<double?>(plr),
       'albumin': serializer.toJson<double?>(albumin),
       'neutrophil': serializer.toJson<double?>(neutrophil),
@@ -1966,6 +2049,7 @@ class PreChemoAssessment extends DataClass
     Value<String?> otherExam = const Value.absent(),
     Value<double?> hemoglobin = const Value.absent(),
     Value<double?> plateletCount = const Value.absent(),
+    Value<double?> totalWbc = const Value.absent(),
     Value<double?> plr = const Value.absent(),
     Value<double?> albumin = const Value.absent(),
     Value<double?> neutrophil = const Value.absent(),
@@ -1996,6 +2080,7 @@ class PreChemoAssessment extends DataClass
     plateletCount: plateletCount.present
         ? plateletCount.value
         : this.plateletCount,
+    totalWbc: totalWbc.present ? totalWbc.value : this.totalWbc,
     plr: plr.present ? plr.value : this.plr,
     albumin: albumin.present ? albumin.value : this.albumin,
     neutrophil: neutrophil.present ? neutrophil.value : this.neutrophil,
@@ -2032,6 +2117,7 @@ class PreChemoAssessment extends DataClass
       plateletCount: data.plateletCount.present
           ? data.plateletCount.value
           : this.plateletCount,
+      totalWbc: data.totalWbc.present ? data.totalWbc.value : this.totalWbc,
       plr: data.plr.present ? data.plr.value : this.plr,
       albumin: data.albumin.present ? data.albumin.value : this.albumin,
       neutrophil: data.neutrophil.present
@@ -2065,6 +2151,7 @@ class PreChemoAssessment extends DataClass
           ..write('otherExam: $otherExam, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -2092,6 +2179,7 @@ class PreChemoAssessment extends DataClass
     otherExam,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -2118,6 +2206,7 @@ class PreChemoAssessment extends DataClass
           other.otherExam == this.otherExam &&
           other.hemoglobin == this.hemoglobin &&
           other.plateletCount == this.plateletCount &&
+          other.totalWbc == this.totalWbc &&
           other.plr == this.plr &&
           other.albumin == this.albumin &&
           other.neutrophil == this.neutrophil &&
@@ -2142,6 +2231,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
   final Value<String?> otherExam;
   final Value<double?> hemoglobin;
   final Value<double?> plateletCount;
+  final Value<double?> totalWbc;
   final Value<double?> plr;
   final Value<double?> albumin;
   final Value<double?> neutrophil;
@@ -2164,6 +2254,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     this.otherExam = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -2187,6 +2278,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     this.otherExam = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -2210,6 +2302,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     Expression<String>? otherExam,
     Expression<double>? hemoglobin,
     Expression<double>? plateletCount,
+    Expression<double>? totalWbc,
     Expression<double>? plr,
     Expression<double>? albumin,
     Expression<double>? neutrophil,
@@ -2233,6 +2326,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
       if (otherExam != null) 'other_exam': otherExam,
       if (hemoglobin != null) 'hemoglobin': hemoglobin,
       if (plateletCount != null) 'platelet_count': plateletCount,
+      if (totalWbc != null) 'total_wbc': totalWbc,
       if (plr != null) 'plr': plr,
       if (albumin != null) 'albumin': albumin,
       if (neutrophil != null) 'neutrophil': neutrophil,
@@ -2258,6 +2352,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     Value<String?>? otherExam,
     Value<double?>? hemoglobin,
     Value<double?>? plateletCount,
+    Value<double?>? totalWbc,
     Value<double?>? plr,
     Value<double?>? albumin,
     Value<double?>? neutrophil,
@@ -2281,6 +2376,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
       otherExam: otherExam ?? this.otherExam,
       hemoglobin: hemoglobin ?? this.hemoglobin,
       plateletCount: plateletCount ?? this.plateletCount,
+      totalWbc: totalWbc ?? this.totalWbc,
       plr: plr ?? this.plr,
       albumin: albumin ?? this.albumin,
       neutrophil: neutrophil ?? this.neutrophil,
@@ -2336,6 +2432,9 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
     if (plateletCount.present) {
       map['platelet_count'] = Variable<double>(plateletCount.value);
     }
+    if (totalWbc.present) {
+      map['total_wbc'] = Variable<double>(totalWbc.value);
+    }
     if (plr.present) {
       map['plr'] = Variable<double>(plr.value);
     }
@@ -2377,6 +2476,7 @@ class PreChemoAssessmentsCompanion extends UpdateCompanion<PreChemoAssessment> {
           ..write('otherExam: $otherExam, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -2537,6 +2637,17 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _totalWbcMeta = const VerificationMeta(
+    'totalWbc',
+  );
+  @override
+  late final GeneratedColumn<double> totalWbc = GeneratedColumn<double>(
+    'total_wbc',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _plrMeta = const VerificationMeta('plr');
   @override
   late final GeneratedColumn<double> plr = GeneratedColumn<double>(
@@ -2656,6 +2767,7 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
     needBloodTransfusion,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -2760,6 +2872,12 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
           data['platelet_count']!,
           _plateletCountMeta,
         ),
+      );
+    }
+    if (data.containsKey('total_wbc')) {
+      context.handle(
+        _totalWbcMeta,
+        totalWbc.isAcceptableOrUnknown(data['total_wbc']!, _totalWbcMeta),
       );
     }
     if (data.containsKey('plr')) {
@@ -2888,6 +3006,10 @@ class $PostChemoAssessmentsTable extends PostChemoAssessments
         DriftSqlType.double,
         data['${effectivePrefix}platelet_count'],
       ),
+      totalWbc: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}total_wbc'],
+      ),
       plr: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}plr'],
@@ -2951,6 +3073,7 @@ class PostChemoAssessment extends DataClass
   final bool? needBloodTransfusion;
   final double? hemoglobin;
   final double? plateletCount;
+  final double? totalWbc;
   final double? plr;
   final double? albumin;
   final double? neutrophil;
@@ -2974,6 +3097,7 @@ class PostChemoAssessment extends DataClass
     this.needBloodTransfusion,
     this.hemoglobin,
     this.plateletCount,
+    this.totalWbc,
     this.plr,
     this.albumin,
     this.neutrophil,
@@ -3019,6 +3143,9 @@ class PostChemoAssessment extends DataClass
     }
     if (!nullToAbsent || plateletCount != null) {
       map['platelet_count'] = Variable<double>(plateletCount);
+    }
+    if (!nullToAbsent || totalWbc != null) {
+      map['total_wbc'] = Variable<double>(totalWbc);
     }
     if (!nullToAbsent || plr != null) {
       map['plr'] = Variable<double>(plr);
@@ -3085,6 +3212,9 @@ class PostChemoAssessment extends DataClass
       plateletCount: plateletCount == null && nullToAbsent
           ? const Value.absent()
           : Value(plateletCount),
+      totalWbc: totalWbc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totalWbc),
       plr: plr == null && nullToAbsent ? const Value.absent() : Value(plr),
       albumin: albumin == null && nullToAbsent
           ? const Value.absent()
@@ -3130,6 +3260,7 @@ class PostChemoAssessment extends DataClass
       ),
       hemoglobin: serializer.fromJson<double?>(json['hemoglobin']),
       plateletCount: serializer.fromJson<double?>(json['plateletCount']),
+      totalWbc: serializer.fromJson<double?>(json['totalWbc']),
       plr: serializer.fromJson<double?>(json['plr']),
       albumin: serializer.fromJson<double?>(json['albumin']),
       neutrophil: serializer.fromJson<double?>(json['neutrophil']),
@@ -3158,6 +3289,7 @@ class PostChemoAssessment extends DataClass
       'needBloodTransfusion': serializer.toJson<bool?>(needBloodTransfusion),
       'hemoglobin': serializer.toJson<double?>(hemoglobin),
       'plateletCount': serializer.toJson<double?>(plateletCount),
+      'totalWbc': serializer.toJson<double?>(totalWbc),
       'plr': serializer.toJson<double?>(plr),
       'albumin': serializer.toJson<double?>(albumin),
       'neutrophil': serializer.toJson<double?>(neutrophil),
@@ -3184,6 +3316,7 @@ class PostChemoAssessment extends DataClass
     Value<bool?> needBloodTransfusion = const Value.absent(),
     Value<double?> hemoglobin = const Value.absent(),
     Value<double?> plateletCount = const Value.absent(),
+    Value<double?> totalWbc = const Value.absent(),
     Value<double?> plr = const Value.absent(),
     Value<double?> albumin = const Value.absent(),
     Value<double?> neutrophil = const Value.absent(),
@@ -3213,6 +3346,7 @@ class PostChemoAssessment extends DataClass
     plateletCount: plateletCount.present
         ? plateletCount.value
         : this.plateletCount,
+    totalWbc: totalWbc.present ? totalWbc.value : this.totalWbc,
     plr: plr.present ? plr.value : this.plr,
     albumin: albumin.present ? albumin.value : this.albumin,
     neutrophil: neutrophil.present ? neutrophil.value : this.neutrophil,
@@ -3260,6 +3394,7 @@ class PostChemoAssessment extends DataClass
       plateletCount: data.plateletCount.present
           ? data.plateletCount.value
           : this.plateletCount,
+      totalWbc: data.totalWbc.present ? data.totalWbc.value : this.totalWbc,
       plr: data.plr.present ? data.plr.value : this.plr,
       albumin: data.albumin.present ? data.albumin.value : this.albumin,
       neutrophil: data.neutrophil.present
@@ -3300,6 +3435,7 @@ class PostChemoAssessment extends DataClass
           ..write('needBloodTransfusion: $needBloodTransfusion, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -3328,6 +3464,7 @@ class PostChemoAssessment extends DataClass
     needBloodTransfusion,
     hemoglobin,
     plateletCount,
+    totalWbc,
     plr,
     albumin,
     neutrophil,
@@ -3355,6 +3492,7 @@ class PostChemoAssessment extends DataClass
           other.needBloodTransfusion == this.needBloodTransfusion &&
           other.hemoglobin == this.hemoglobin &&
           other.plateletCount == this.plateletCount &&
+          other.totalWbc == this.totalWbc &&
           other.plr == this.plr &&
           other.albumin == this.albumin &&
           other.neutrophil == this.neutrophil &&
@@ -3381,6 +3519,7 @@ class PostChemoAssessmentsCompanion
   final Value<bool?> needBloodTransfusion;
   final Value<double?> hemoglobin;
   final Value<double?> plateletCount;
+  final Value<double?> totalWbc;
   final Value<double?> plr;
   final Value<double?> albumin;
   final Value<double?> neutrophil;
@@ -3404,6 +3543,7 @@ class PostChemoAssessmentsCompanion
     this.needBloodTransfusion = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -3428,6 +3568,7 @@ class PostChemoAssessmentsCompanion
     this.needBloodTransfusion = const Value.absent(),
     this.hemoglobin = const Value.absent(),
     this.plateletCount = const Value.absent(),
+    this.totalWbc = const Value.absent(),
     this.plr = const Value.absent(),
     this.albumin = const Value.absent(),
     this.neutrophil = const Value.absent(),
@@ -3452,6 +3593,7 @@ class PostChemoAssessmentsCompanion
     Expression<bool>? needBloodTransfusion,
     Expression<double>? hemoglobin,
     Expression<double>? plateletCount,
+    Expression<double>? totalWbc,
     Expression<double>? plr,
     Expression<double>? albumin,
     Expression<double>? neutrophil,
@@ -3477,6 +3619,7 @@ class PostChemoAssessmentsCompanion
         'need_blood_transfusion': needBloodTransfusion,
       if (hemoglobin != null) 'hemoglobin': hemoglobin,
       if (plateletCount != null) 'platelet_count': plateletCount,
+      if (totalWbc != null) 'total_wbc': totalWbc,
       if (plr != null) 'plr': plr,
       if (albumin != null) 'albumin': albumin,
       if (neutrophil != null) 'neutrophil': neutrophil,
@@ -3503,6 +3646,7 @@ class PostChemoAssessmentsCompanion
     Value<bool?>? needBloodTransfusion,
     Value<double?>? hemoglobin,
     Value<double?>? plateletCount,
+    Value<double?>? totalWbc,
     Value<double?>? plr,
     Value<double?>? albumin,
     Value<double?>? neutrophil,
@@ -3527,6 +3671,7 @@ class PostChemoAssessmentsCompanion
       needBloodTransfusion: needBloodTransfusion ?? this.needBloodTransfusion,
       hemoglobin: hemoglobin ?? this.hemoglobin,
       plateletCount: plateletCount ?? this.plateletCount,
+      totalWbc: totalWbc ?? this.totalWbc,
       plr: plr ?? this.plr,
       albumin: albumin ?? this.albumin,
       neutrophil: neutrophil ?? this.neutrophil,
@@ -3581,6 +3726,9 @@ class PostChemoAssessmentsCompanion
     if (plateletCount.present) {
       map['platelet_count'] = Variable<double>(plateletCount.value);
     }
+    if (totalWbc.present) {
+      map['total_wbc'] = Variable<double>(totalWbc.value);
+    }
     if (plr.present) {
       map['plr'] = Variable<double>(plr.value);
     }
@@ -3629,6 +3777,7 @@ class PostChemoAssessmentsCompanion
           ..write('needBloodTransfusion: $needBloodTransfusion, ')
           ..write('hemoglobin: $hemoglobin, ')
           ..write('plateletCount: $plateletCount, ')
+          ..write('totalWbc: $totalWbc, ')
           ..write('plr: $plr, ')
           ..write('albumin: $albumin, ')
           ..write('neutrophil: $neutrophil, ')
@@ -6086,6 +6235,359 @@ class RelapseFollowupsCompanion extends UpdateCompanion<RelapseFollowup> {
   }
 }
 
+class $SyncQueueTable extends SyncQueue
+    with TableInfo<$SyncQueueTable, SyncQueueData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _syncTableMeta = const VerificationMeta(
+    'syncTable',
+  );
+  @override
+  late final GeneratedColumn<String> syncTable = GeneratedColumn<String>(
+    'sync_table',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _patientIdMeta = const VerificationMeta(
+    'patientId',
+  );
+  @override
+  late final GeneratedColumn<int> patientId = GeneratedColumn<int>(
+    'patient_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _doneMeta = const VerificationMeta('done');
+  @override
+  late final GeneratedColumn<bool> done = GeneratedColumn<bool>(
+    'done',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("done" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _queuedAtMeta = const VerificationMeta(
+    'queuedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> queuedAt = GeneratedColumn<DateTime>(
+    'queued_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    syncTable,
+    patientId,
+    done,
+    queuedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_queue';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncQueueData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sync_table')) {
+      context.handle(
+        _syncTableMeta,
+        syncTable.isAcceptableOrUnknown(data['sync_table']!, _syncTableMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_syncTableMeta);
+    }
+    if (data.containsKey('patient_id')) {
+      context.handle(
+        _patientIdMeta,
+        patientId.isAcceptableOrUnknown(data['patient_id']!, _patientIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_patientIdMeta);
+    }
+    if (data.containsKey('done')) {
+      context.handle(
+        _doneMeta,
+        done.isAcceptableOrUnknown(data['done']!, _doneMeta),
+      );
+    }
+    if (data.containsKey('queued_at')) {
+      context.handle(
+        _queuedAtMeta,
+        queuedAt.isAcceptableOrUnknown(data['queued_at']!, _queuedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {syncTable, patientId},
+  ];
+  @override
+  SyncQueueData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncQueueData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      syncTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_table'],
+      )!,
+      patientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}patient_id'],
+      )!,
+      done: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}done'],
+      )!,
+      queuedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}queued_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncQueueTable createAlias(String alias) {
+    return $SyncQueueTable(attachedDatabase, alias);
+  }
+}
+
+class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
+  final int id;
+  final String syncTable;
+  final int patientId;
+  final bool done;
+  final DateTime queuedAt;
+  const SyncQueueData({
+    required this.id,
+    required this.syncTable,
+    required this.patientId,
+    required this.done,
+    required this.queuedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['sync_table'] = Variable<String>(syncTable);
+    map['patient_id'] = Variable<int>(patientId);
+    map['done'] = Variable<bool>(done);
+    map['queued_at'] = Variable<DateTime>(queuedAt);
+    return map;
+  }
+
+  SyncQueueCompanion toCompanion(bool nullToAbsent) {
+    return SyncQueueCompanion(
+      id: Value(id),
+      syncTable: Value(syncTable),
+      patientId: Value(patientId),
+      done: Value(done),
+      queuedAt: Value(queuedAt),
+    );
+  }
+
+  factory SyncQueueData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncQueueData(
+      id: serializer.fromJson<int>(json['id']),
+      syncTable: serializer.fromJson<String>(json['syncTable']),
+      patientId: serializer.fromJson<int>(json['patientId']),
+      done: serializer.fromJson<bool>(json['done']),
+      queuedAt: serializer.fromJson<DateTime>(json['queuedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'syncTable': serializer.toJson<String>(syncTable),
+      'patientId': serializer.toJson<int>(patientId),
+      'done': serializer.toJson<bool>(done),
+      'queuedAt': serializer.toJson<DateTime>(queuedAt),
+    };
+  }
+
+  SyncQueueData copyWith({
+    int? id,
+    String? syncTable,
+    int? patientId,
+    bool? done,
+    DateTime? queuedAt,
+  }) => SyncQueueData(
+    id: id ?? this.id,
+    syncTable: syncTable ?? this.syncTable,
+    patientId: patientId ?? this.patientId,
+    done: done ?? this.done,
+    queuedAt: queuedAt ?? this.queuedAt,
+  );
+  SyncQueueData copyWithCompanion(SyncQueueCompanion data) {
+    return SyncQueueData(
+      id: data.id.present ? data.id.value : this.id,
+      syncTable: data.syncTable.present ? data.syncTable.value : this.syncTable,
+      patientId: data.patientId.present ? data.patientId.value : this.patientId,
+      done: data.done.present ? data.done.value : this.done,
+      queuedAt: data.queuedAt.present ? data.queuedAt.value : this.queuedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueData(')
+          ..write('id: $id, ')
+          ..write('syncTable: $syncTable, ')
+          ..write('patientId: $patientId, ')
+          ..write('done: $done, ')
+          ..write('queuedAt: $queuedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, syncTable, patientId, done, queuedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncQueueData &&
+          other.id == this.id &&
+          other.syncTable == this.syncTable &&
+          other.patientId == this.patientId &&
+          other.done == this.done &&
+          other.queuedAt == this.queuedAt);
+}
+
+class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
+  final Value<int> id;
+  final Value<String> syncTable;
+  final Value<int> patientId;
+  final Value<bool> done;
+  final Value<DateTime> queuedAt;
+  const SyncQueueCompanion({
+    this.id = const Value.absent(),
+    this.syncTable = const Value.absent(),
+    this.patientId = const Value.absent(),
+    this.done = const Value.absent(),
+    this.queuedAt = const Value.absent(),
+  });
+  SyncQueueCompanion.insert({
+    this.id = const Value.absent(),
+    required String syncTable,
+    required int patientId,
+    this.done = const Value.absent(),
+    this.queuedAt = const Value.absent(),
+  }) : syncTable = Value(syncTable),
+       patientId = Value(patientId);
+  static Insertable<SyncQueueData> custom({
+    Expression<int>? id,
+    Expression<String>? syncTable,
+    Expression<int>? patientId,
+    Expression<bool>? done,
+    Expression<DateTime>? queuedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (syncTable != null) 'sync_table': syncTable,
+      if (patientId != null) 'patient_id': patientId,
+      if (done != null) 'done': done,
+      if (queuedAt != null) 'queued_at': queuedAt,
+    });
+  }
+
+  SyncQueueCompanion copyWith({
+    Value<int>? id,
+    Value<String>? syncTable,
+    Value<int>? patientId,
+    Value<bool>? done,
+    Value<DateTime>? queuedAt,
+  }) {
+    return SyncQueueCompanion(
+      id: id ?? this.id,
+      syncTable: syncTable ?? this.syncTable,
+      patientId: patientId ?? this.patientId,
+      done: done ?? this.done,
+      queuedAt: queuedAt ?? this.queuedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (syncTable.present) {
+      map['sync_table'] = Variable<String>(syncTable.value);
+    }
+    if (patientId.present) {
+      map['patient_id'] = Variable<int>(patientId.value);
+    }
+    if (done.present) {
+      map['done'] = Variable<bool>(done.value);
+    }
+    if (queuedAt.present) {
+      map['queued_at'] = Variable<DateTime>(queuedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueCompanion(')
+          ..write('id: $id, ')
+          ..write('syncTable: $syncTable, ')
+          ..write('patientId: $patientId, ')
+          ..write('done: $done, ')
+          ..write('queuedAt: $queuedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6099,6 +6601,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RelapseFollowupsTable relapseFollowups = $RelapseFollowupsTable(
     this,
   );
+  late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6109,6 +6612,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     postChemoAssessments,
     cytoreductionCtFindings,
     relapseFollowups,
+    syncQueue,
   ];
 }
 
@@ -6135,6 +6639,7 @@ typedef $$PatientsTableCreateCompanionBuilder =
       required String familyHistory,
       Value<String?> familyHistoryOthers,
       Value<DateTime> createdAt,
+      Value<String> patientUuid,
     });
 typedef $$PatientsTableUpdateCompanionBuilder =
     PatientsCompanion Function({
@@ -6159,6 +6664,7 @@ typedef $$PatientsTableUpdateCompanionBuilder =
       Value<String> familyHistory,
       Value<String?> familyHistoryOthers,
       Value<DateTime> createdAt,
+      Value<String> patientUuid,
     });
 
 final class $$PatientsTableReferences
@@ -6371,6 +6877,11 @@ class $$PatientsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get patientUuid => $composableBuilder(
+    column: $table.patientUuid,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6589,6 +7100,11 @@ class $$PatientsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get patientUuid => $composableBuilder(
+    column: $table.patientUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PatientsTableAnnotationComposer
@@ -6688,6 +7204,11 @@ class $$PatientsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get patientUuid => $composableBuilder(
+    column: $table.patientUuid,
+    builder: (column) => column,
+  );
 
   Expression<T> preChemoAssessmentsRefs<T extends Object>(
     Expression<T> Function($$PreChemoAssessmentsTableAnnotationComposer a) f,
@@ -6848,6 +7369,7 @@ class $$PatientsTableTableManager
                 Value<String> familyHistory = const Value.absent(),
                 Value<String?> familyHistoryOthers = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> patientUuid = const Value.absent(),
               }) => PatientsCompanion(
                 id: id,
                 serialNumber: serialNumber,
@@ -6870,6 +7392,7 @@ class $$PatientsTableTableManager
                 familyHistory: familyHistory,
                 familyHistoryOthers: familyHistoryOthers,
                 createdAt: createdAt,
+                patientUuid: patientUuid,
               ),
           createCompanionCallback:
               ({
@@ -6894,6 +7417,7 @@ class $$PatientsTableTableManager
                 required String familyHistory,
                 Value<String?> familyHistoryOthers = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> patientUuid = const Value.absent(),
               }) => PatientsCompanion.insert(
                 id: id,
                 serialNumber: serialNumber,
@@ -6916,6 +7440,7 @@ class $$PatientsTableTableManager
                 familyHistory: familyHistory,
                 familyHistoryOthers: familyHistoryOthers,
                 createdAt: createdAt,
+                patientUuid: patientUuid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7070,6 +7595,7 @@ typedef $$PreChemoAssessmentsTableCreateCompanionBuilder =
       Value<String?> otherExam,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -7094,6 +7620,7 @@ typedef $$PreChemoAssessmentsTableUpdateCompanionBuilder =
       Value<String?> otherExam,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -7205,6 +7732,11 @@ class $$PreChemoAssessmentsTableFilterComposer
 
   ColumnFilters<double> get plateletCount => $composableBuilder(
     column: $table.plateletCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7341,6 +7873,11 @@ class $$PreChemoAssessmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get plr => $composableBuilder(
     column: $table.plr,
     builder: (column) => ColumnOrderings(column),
@@ -7460,6 +7997,9 @@ class $$PreChemoAssessmentsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get totalWbc =>
+      $composableBuilder(column: $table.totalWbc, builder: (column) => column);
+
   GeneratedColumn<double> get plr =>
       $composableBuilder(column: $table.plr, builder: (column) => column);
 
@@ -7561,6 +8101,7 @@ class $$PreChemoAssessmentsTableTableManager
                 Value<String?> otherExam = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -7583,6 +8124,7 @@ class $$PreChemoAssessmentsTableTableManager
                 otherExam: otherExam,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,
@@ -7607,6 +8149,7 @@ class $$PreChemoAssessmentsTableTableManager
                 Value<String?> otherExam = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -7629,6 +8172,7 @@ class $$PreChemoAssessmentsTableTableManager
                 otherExam: otherExam,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,
@@ -7720,6 +8264,7 @@ typedef $$PostChemoAssessmentsTableCreateCompanionBuilder =
       Value<bool?> needBloodTransfusion,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -7745,6 +8290,7 @@ typedef $$PostChemoAssessmentsTableUpdateCompanionBuilder =
       Value<bool?> needBloodTransfusion,
       Value<double?> hemoglobin,
       Value<double?> plateletCount,
+      Value<double?> totalWbc,
       Value<double?> plr,
       Value<double?> albumin,
       Value<double?> neutrophil,
@@ -7849,6 +8395,11 @@ class $$PostChemoAssessmentsTableFilterComposer
 
   ColumnFilters<double> get plateletCount => $composableBuilder(
     column: $table.plateletCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7990,6 +8541,11 @@ class $$PostChemoAssessmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get totalWbc => $composableBuilder(
+    column: $table.totalWbc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get plr => $composableBuilder(
     column: $table.plr,
     builder: (column) => ColumnOrderings(column),
@@ -8122,6 +8678,9 @@ class $$PostChemoAssessmentsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get totalWbc =>
+      $composableBuilder(column: $table.totalWbc, builder: (column) => column);
+
   GeneratedColumn<double> get plr =>
       $composableBuilder(column: $table.plr, builder: (column) => column);
 
@@ -8236,6 +8795,7 @@ class $$PostChemoAssessmentsTableTableManager
                 Value<bool?> needBloodTransfusion = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -8259,6 +8819,7 @@ class $$PostChemoAssessmentsTableTableManager
                 needBloodTransfusion: needBloodTransfusion,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,
@@ -8284,6 +8845,7 @@ class $$PostChemoAssessmentsTableTableManager
                 Value<bool?> needBloodTransfusion = const Value.absent(),
                 Value<double?> hemoglobin = const Value.absent(),
                 Value<double?> plateletCount = const Value.absent(),
+                Value<double?> totalWbc = const Value.absent(),
                 Value<double?> plr = const Value.absent(),
                 Value<double?> albumin = const Value.absent(),
                 Value<double?> neutrophil = const Value.absent(),
@@ -8307,6 +8869,7 @@ class $$PostChemoAssessmentsTableTableManager
                 needBloodTransfusion: needBloodTransfusion,
                 hemoglobin: hemoglobin,
                 plateletCount: plateletCount,
+                totalWbc: totalWbc,
                 plr: plr,
                 albumin: albumin,
                 neutrophil: neutrophil,
@@ -9693,6 +10256,200 @@ typedef $$RelapseFollowupsTableProcessedTableManager =
       RelapseFollowup,
       PrefetchHooks Function({bool patientId})
     >;
+typedef $$SyncQueueTableCreateCompanionBuilder =
+    SyncQueueCompanion Function({
+      Value<int> id,
+      required String syncTable,
+      required int patientId,
+      Value<bool> done,
+      Value<DateTime> queuedAt,
+    });
+typedef $$SyncQueueTableUpdateCompanionBuilder =
+    SyncQueueCompanion Function({
+      Value<int> id,
+      Value<String> syncTable,
+      Value<int> patientId,
+      Value<bool> done,
+      Value<DateTime> queuedAt,
+    });
+
+class $$SyncQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncTable => $composableBuilder(
+    column: $table.syncTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get patientId => $composableBuilder(
+    column: $table.patientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get done => $composableBuilder(
+    column: $table.done,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get queuedAt => $composableBuilder(
+    column: $table.queuedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncTable => $composableBuilder(
+    column: $table.syncTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get patientId => $composableBuilder(
+    column: $table.patientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get done => $composableBuilder(
+    column: $table.done,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get queuedAt => $composableBuilder(
+    column: $table.queuedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncQueueTable> {
+  $$SyncQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get syncTable =>
+      $composableBuilder(column: $table.syncTable, builder: (column) => column);
+
+  GeneratedColumn<int> get patientId =>
+      $composableBuilder(column: $table.patientId, builder: (column) => column);
+
+  GeneratedColumn<bool> get done =>
+      $composableBuilder(column: $table.done, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get queuedAt =>
+      $composableBuilder(column: $table.queuedAt, builder: (column) => column);
+}
+
+class $$SyncQueueTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncQueueTable,
+          SyncQueueData,
+          $$SyncQueueTableFilterComposer,
+          $$SyncQueueTableOrderingComposer,
+          $$SyncQueueTableAnnotationComposer,
+          $$SyncQueueTableCreateCompanionBuilder,
+          $$SyncQueueTableUpdateCompanionBuilder,
+          (
+            SyncQueueData,
+            BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueData>,
+          ),
+          SyncQueueData,
+          PrefetchHooks Function()
+        > {
+  $$SyncQueueTableTableManager(_$AppDatabase db, $SyncQueueTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> syncTable = const Value.absent(),
+                Value<int> patientId = const Value.absent(),
+                Value<bool> done = const Value.absent(),
+                Value<DateTime> queuedAt = const Value.absent(),
+              }) => SyncQueueCompanion(
+                id: id,
+                syncTable: syncTable,
+                patientId: patientId,
+                done: done,
+                queuedAt: queuedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String syncTable,
+                required int patientId,
+                Value<bool> done = const Value.absent(),
+                Value<DateTime> queuedAt = const Value.absent(),
+              }) => SyncQueueCompanion.insert(
+                id: id,
+                syncTable: syncTable,
+                patientId: patientId,
+                done: done,
+                queuedAt: queuedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncQueueTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncQueueTable,
+      SyncQueueData,
+      $$SyncQueueTableFilterComposer,
+      $$SyncQueueTableOrderingComposer,
+      $$SyncQueueTableAnnotationComposer,
+      $$SyncQueueTableCreateCompanionBuilder,
+      $$SyncQueueTableUpdateCompanionBuilder,
+      (
+        SyncQueueData,
+        BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueData>,
+      ),
+      SyncQueueData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9710,4 +10467,6 @@ class $AppDatabaseManager {
       );
   $$RelapseFollowupsTableTableManager get relapseFollowups =>
       $$RelapseFollowupsTableTableManager(_db, _db.relapseFollowups);
+  $$SyncQueueTableTableManager get syncQueue =>
+      $$SyncQueueTableTableManager(_db, _db.syncQueue);
 }

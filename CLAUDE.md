@@ -16,6 +16,7 @@ dart run build_runner watch            # or: make watch (continuous)
 # Run
 flutter run                            # auto-selects available device
 flutter run -d ios                     # or: make run-ios
+flutter run --release                  # release mode (required when running without USB)
 
 # Quality
 flutter analyze                        # or: make analyze
@@ -28,35 +29,79 @@ flutter clean                          # or: make clean
 
 ## Architecture
 
-iOS-only Flutter app. No backend — all data is stored locally in SQLite via Drift ORM.
+iOS-only Flutter app. Offline-first with Supabase cloud sync. All data is stored locally in SQLite via Drift ORM and synced to Supabase in the background.
 
 ### State & navigation
 - **Riverpod** for state management. Providers are hand-written (no `riverpod_generator`). The two core providers live in `lib/providers/database_provider.dart`: `databaseProvider` (plain `Provider<AppDatabase>`) and `patientsProvider` (`StreamProvider` that watches the patients table).
 - **go_router** with a `ShellRoute` for the 3-tab bottom nav (Patients / Insights / Export). Full-screen form routes sit outside the `ShellRoute` so they have no bottom bar. Router defined in `lib/router.dart`.
 
 ### Database
-- `lib/db/database.dart` — single `AppDatabase` class with 5 Drift tables: `Patients`, `PreChemoAssessments`, `PostChemoAssessments`, `CytoreductionCtFindings`, `RelapseFollowups`.
+- `lib/db/database.dart` — single `AppDatabase` class with 6 Drift tables: `Patients`, `PreChemoAssessments`, `PostChemoAssessments`, `CytoreductionCtFindings`, `RelapseFollowups`, `SyncQueue`.
 - `lib/db/database.g.dart` — **auto-generated**, do not edit. Regenerate with `make gen` after any schema change.
+- Current schema version: **4**. Always bump `schemaVersion` and add a migration branch when changing any table.
 - All non-patient forms use `insertOnConflictUpdate` (upsert) so re-saving updates rather than duplicates.
-- Incrementing `schemaVersion` and writing a `migration` is required for any table schema change on an existing install.
+- `patient_uuid` (UUID v4) is the cross-device identity key on the `Patients` table. Generated at insert time, stamped onto Supabase rows, used as the primary merge key during sync.
 
 ### Forms flow
 One patient → 5 linked forms, each a separate screen:
-1. Registration (`form1_registration.dart`) — creates the `Patient` row; required fields validated.
-2. Pre-Chemo Assessment (`form2_pre_chemo.dart`) — BMI auto-calculated from height/weight listeners.
-3. Post-Chemo Assessment (`form3_post_chemo.dart`)
+1. Registration (`form1_registration.dart`) — creates the `Patient` row; blocks duplicate `hospital_number` on new patients.
+2. Pre-Chemo Assessment (`form2_pre_chemo.dart`) — BMI auto-calculated from height/weight. NLR, PLR, SII auto-calculated from Platelet + Total WBC + Neutrophil% + Lymphocyte%.
+3. Post-Chemo Assessment (`form3_post_chemo.dart`) — same blood-marker auto-calculation as Form 2.
 4. Cytoreduction & CT Findings (`form4_cytoreduction.dart`) — dynamic controllers per organ (11 organs × pre/post).
 5. Relapse Follow-up (`form5_relapse.dart`) — gated until Post-Chemo is filled.
 
-Skip logic (conditional fields) uses `AnimatedSwitcher` + `setState`, not a form framework.
+**Auto-calculated blood markers (Forms 2 & 3):**
+- Absolute Neutrophil = (Neutrophil% / 100) × Total WBC
+- Absolute Lymphocyte = (Lymphocyte% / 100) × Total WBC
+- NLR = Neutrophil% / Lymphocyte%
+- PLR = Platelet / Absolute Lymphocyte
+- SII = (Platelet × Neutrophil%) / Lymphocyte%
+
+NLR, PLR, SII are read-only in the form and recalculate live as the user types.
+
+### Sync architecture
+`lib/services/sync_service.dart` — singleton, initialised in `main.dart` via `SyncService.instance.init(db)`.
+
+**Push (local → Supabase):**
+- Every save enqueues an entry in `SyncQueue` via `SyncService.instance.enqueue(table, patientId)`.
+- `_flush()` runs on connectivity restore and on Supabase Realtime events. It pushes all pending queue items, then pulls from Supabase (throttled to once per 10 s).
+- Every patient upsert includes `patient_uuid` and `is_deleted: false`.
+- Every child-form upsert includes `patient_uuid` for cross-device linking.
+
+**Pull (Supabase → local):**
+- Patients with `is_deleted = true` are deleted locally (tombstone processing).
+- Active patients (`is_deleted = false OR NULL`) are upserted using `upsertPatientByUuid()` — UUID match first, hospital_number fallback for legacy rows.
+- Duplicate hospital_numbers in Supabase are deduplicated by `created_at` (most recent wins).
+- Child forms are linked via `patient_uuid` (primary) or `device_id:patient_local_id` (legacy fallback).
+
+**Delete:**
+- `deleteFromCloud(patientId)` soft-deletes the patient row (`is_deleted: true`) and hard-deletes child form rows, both keyed by `patient_uuid`. Falls back to `device_id:local_id` for legacy rows without a UUID.
+
+**Realtime:**
+- Supabase Realtime subscription on the `patients` table triggers `_flush()` on every remote change, giving near-instant cross-device sync.
+
+### Supabase schema requirements
+The following columns must exist beyond the defaults generated by the initial migration:
+
+| Table | Column | Type |
+|---|---|---|
+| `patients` | `patient_uuid` | `uuid` |
+| `patients` | `is_deleted` | `boolean default false` |
+| `pre_chemo_assessments` | `patient_uuid` | `uuid` |
+| `pre_chemo_assessments` | `total_wbc` | `real` |
+| `post_chemo_assessments` | `patient_uuid` | `uuid` |
+| `post_chemo_assessments` | `total_wbc` | `real` |
+| `cytoreduction_ct_findings` | `patient_uuid` | `uuid` |
+| `relapse_followups` | `patient_uuid` | `uuid` |
 
 ### Services
+- `lib/services/sync_service.dart` — offline-first Supabase sync (see above).
 - `lib/services/export_service.dart` — builds an 87-column CSV from all patients + linked forms and triggers the iOS share sheet via `share_plus`.
-- `lib/services/notification_service.dart` — wraps `flutter_local_notifications`. Uses `flutter_timezone` to resolve the device's real timezone before scheduling. Reminders are daily repeating (`matchDateTimeComponents: DateTimeComponents.time`), keyed by `patientId` as the notification ID. `testIn5Seconds()` is a dev helper for simulator testing.
+- `lib/services/notification_service.dart` — wraps `flutter_local_notifications`. Uses `flutter_timezone` to resolve the device's real timezone before scheduling. Reminders are daily repeating (`matchDateTimeComponents: DateTimeComponents.time`), keyed by `patientId` as the notification ID.
 
 ### Widgets
 Reusable form widgets in `lib/widgets/`:
-- `LabeledTextField` — supports a `required: bool` flag that wires a validator.
+- `LabeledTextField` — supports a `required: bool` flag that wires a validator. Pass `readOnly: true` for auto-calculated display fields.
 - `LabeledRadioGroup` — named with `Labeled` prefix to avoid conflict with Flutter Material's own `RadioGroup`.
 - `CheckboxGroup` — `FilterChip`-based multi-select.
 
@@ -65,6 +110,8 @@ Reusable form widgets in `lib/widgets/`:
 
 ## Key constraints
 - **iOS only** — project was scaffolded with `--platforms ios`. Do not add Android/web targets without coordinating pod and permission changes.
+- **Debug builds require USB** — `flutter run` (debug mode) needs the Dart VM host. Use `flutter run --release` to run wirelessly after install.
 - `flutter_local_notifications` uses CocoaPods (not Swift Package Manager). After adding or updating it, run `make pods`.
 - Notifications require `WidgetsFlutterBinding.ensureInitialized()` before `runApp` — already present in `main.dart`.
 - The `database.g.dart` file must be committed; it is not generated in CI.
+- Free iOS provisioning (personal team) expires every 7 days — re-sign via Xcode when the app stops launching.

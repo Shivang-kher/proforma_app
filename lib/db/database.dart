@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 part 'database.g.dart';
 
@@ -30,6 +31,8 @@ class Patients extends Table {
   TextColumn get familyHistory => text()(); // comma-separated
   TextColumn get familyHistoryOthers => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  // Cross-device identity key — single row per patient in Supabase.
+  TextColumn get patientUuid => text().withDefault(const Constant(''))();
 }
 
 class PreChemoAssessments extends Table {
@@ -47,6 +50,7 @@ class PreChemoAssessments extends Table {
   TextColumn get otherExam => text().nullable()();
   RealColumn get hemoglobin => real().nullable()();
   RealColumn get plateletCount => real().nullable()();
+  RealColumn get totalWbc => real().nullable()();
   RealColumn get plr => real().nullable()();
   RealColumn get albumin => real().nullable()();
   RealColumn get neutrophil => real().nullable()();
@@ -69,6 +73,7 @@ class PostChemoAssessments extends Table {
   BoolColumn get needBloodTransfusion => boolean().nullable()();
   RealColumn get hemoglobin => real().nullable()();
   RealColumn get plateletCount => real().nullable()();
+  RealColumn get totalWbc => real().nullable()();
   RealColumn get plr => real().nullable()();
   RealColumn get albumin => real().nullable()();
   RealColumn get neutrophil => real().nullable()();
@@ -129,6 +134,20 @@ class RelapseFollowups extends Table {
   DateTimeColumn get recordedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+class SyncQueue extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  // 'patients' | 'pre_chemo' | 'post_chemo' | 'cytoreduction' | 'relapse'
+  TextColumn get syncTable => text()();
+  IntColumn get patientId => integer()();
+  BoolColumn get done => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get queuedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {syncTable, patientId},
+      ];
+}
+
 // ── Database ──────────────────────────────────────────────
 
 @DriftDatabase(tables: [
@@ -137,12 +156,37 @@ class RelapseFollowups extends Table {
   PostChemoAssessments,
   CytoreductionCtFindings,
   RelapseFollowups,
+  SyncQueue,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.createTable(syncQueue);
+          if (from < 3) {
+            await m.addColumn(patients, patients.patientUuid);
+            // Wrap in transaction so a crash mid-loop doesn't leave some patients
+            // without a UUID (migration would re-run on next start and complete).
+            await transaction(() async {
+              final existing = await select(patients).get();
+              for (final p in existing) {
+                await (update(patients)..where((t) => t.id.equals(p.id)))
+                    .write(PatientsCompanion(
+                        patientUuid: Value(const Uuid().v4())));
+              }
+            });
+          }
+          if (from < 4) {
+            await m.addColumn(preChemoAssessments, preChemoAssessments.totalWbc);
+            await m.addColumn(postChemoAssessments, postChemoAssessments.totalWbc);
+          }
+        },
+      );
 
   // ── Patients ──
   Future<List<Patient>> getAllPatients() => select(patients).get();
@@ -152,12 +196,40 @@ class AppDatabase extends _$AppDatabase {
   Future<Patient> getPatient(int id) =>
       (select(patients)..where((p) => p.id.equals(id))).getSingle();
 
-  Future<int> insertPatient(PatientsCompanion p) => into(patients).insert(p);
+  Future<Patient?> getPatientOrNull(int id) =>
+      (select(patients)..where((p) => p.id.equals(id))).getSingleOrNull();
 
-  Future<bool> updatePatient(PatientsCompanion p) => update(patients).replace(p);
+  Future<int> insertPatient(PatientsCompanion p) {
+    final uuid = p.patientUuid.present && p.patientUuid.value.isNotEmpty
+        ? p.patientUuid.value
+        : const Uuid().v4();
+    return into(patients).insert(p.copyWith(patientUuid: Value(uuid)));
+  }
+
+  Future<bool> updatePatient(PatientsCompanion p) async {
+    // Preserve existing UUID if the companion doesn't carry one.
+    if (!p.patientUuid.present || p.patientUuid.value.isEmpty) {
+      final existing = await getPatientOrNull(p.id.value);
+      if (existing != null) {
+        return update(patients)
+            .replace(p.copyWith(patientUuid: Value(existing.patientUuid)));
+      }
+    }
+    return update(patients).replace(p);
+  }
 
   Future<int> deletePatient(int id) =>
       (delete(patients)..where((p) => p.id.equals(id))).go();
+
+  Future<void> deletePatientCascade(int patientId) =>
+      transaction(() async {
+        await (delete(preChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(postChemoAssessments)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(cytoreductionCtFindings)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(relapseFollowups)..where((t) => t.patientId.equals(patientId))).go();
+        await (delete(syncQueue)..where((q) => q.patientId.equals(patientId))).go();
+        await (delete(patients)..where((p) => p.id.equals(patientId))).go();
+      });
 
   // ── Pre-chemo ──
   Future<PreChemoAssessment?> getPreChemo(int patientId) =>
@@ -183,12 +255,18 @@ class AppDatabase extends _$AppDatabase {
   Future<int> upsertCytoreduction(CytoreductionCtFindingsCompanion entry) =>
       into(cytoreductionCtFindings).insertOnConflictUpdate(entry);
 
-  // ── Bulk queries for insights ──
+  // ── Bulk queries ──
   Future<List<PreChemoAssessment>> getAllPreChemos() =>
       select(preChemoAssessments).get();
 
   Future<List<PostChemoAssessment>> getAllPostChemos() =>
       select(postChemoAssessments).get();
+
+  Future<List<CytoreductionCtFinding>> getAllCytoreductions() =>
+      select(cytoreductionCtFindings).get();
+
+  Future<List<RelapseFollowup>> getAllRelapses() =>
+      select(relapseFollowups).get();
 
   // ── Relapse ──
   Future<RelapseFollowup?> getRelapse(int patientId) =>
@@ -197,6 +275,94 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> upsertRelapse(RelapseFollowupsCompanion entry) =>
       into(relapseFollowups).insertOnConflictUpdate(entry);
+
+  // ── Completion map (for patient list strip) ──
+  Future<Map<int, ({bool pre, bool post, bool cyto, bool relapse})>>
+      getCompletionMap() async {
+    final preIds = await (selectOnly(preChemoAssessments)
+          ..addColumns([preChemoAssessments.patientId]))
+        .map((r) => r.read(preChemoAssessments.patientId)!)
+        .get();
+    final postIds = await (selectOnly(postChemoAssessments)
+          ..addColumns([postChemoAssessments.patientId]))
+        .map((r) => r.read(postChemoAssessments.patientId)!)
+        .get();
+    final cytoIds = await (selectOnly(cytoreductionCtFindings)
+          ..addColumns([cytoreductionCtFindings.patientId]))
+        .map((r) => r.read(cytoreductionCtFindings.patientId)!)
+        .get();
+    final relapseIds = await (selectOnly(relapseFollowups)
+          ..addColumns([relapseFollowups.patientId]))
+        .map((r) => r.read(relapseFollowups.patientId)!)
+        .get();
+
+    final allIds = {...preIds, ...postIds, ...cytoIds, ...relapseIds};
+    return {
+      for (final id in allIds)
+        id: (
+          pre: preIds.contains(id),
+          post: postIds.contains(id),
+          cyto: cytoIds.contains(id),
+          relapse: relapseIds.contains(id),
+        ),
+    };
+  }
+
+  Future<Patient?> getPatientByHospitalNumber(String hospitalNumber) =>
+      (select(patients)..where((p) => p.hospitalNumber.equals(hospitalNumber)))
+          .getSingleOrNull();
+
+  Future<Patient?> getPatientByUuid(String uuid) =>
+      (select(patients)..where((p) => p.patientUuid.equals(uuid)))
+          .getSingleOrNull();
+
+  Future<void> patchPatientUuid(int id, String uuid) =>
+      (update(patients)..where((t) => t.id.equals(id)))
+          .write(PatientsCompanion(patientUuid: Value(uuid)));
+
+  Future<int> upsertPatientByUuid(PatientsCompanion companion) async {
+    final uuid = companion.patientUuid.present ? companion.patientUuid.value : '';
+    // Prefer UUID match, fall back to hospital number for legacy rows.
+    Patient? existing;
+    if (uuid.isNotEmpty) existing = await getPatientByUuid(uuid);
+    existing ??=
+        await getPatientByHospitalNumber(companion.hospitalNumber.value);
+
+    if (existing != null) {
+      // Always stamp the authoritative UUID onto the local row.
+      final effectiveUuid =
+          uuid.isNotEmpty ? uuid : existing.patientUuid;
+      await (update(patients)..where((p) => p.id.equals(existing!.id))).write(
+          companion.copyWith(
+              id: Value(existing.id),
+              patientUuid: Value(effectiveUuid)));
+      return existing.id;
+    }
+    return insertPatient(companion);
+  }
+
+  Future<int> getPatientCount() async {
+    final count = countAll();
+    final result = await (selectOnly(patients)..addColumns([count])).getSingle();
+    return result.read(count) ?? 0;
+  }
+
+  // ── Sync queue ──
+  Future<void> enqueueSync(String table, int patientId) =>
+      into(syncQueue).insertOnConflictUpdate(
+        SyncQueueCompanion.insert(
+          syncTable: table,
+          patientId: patientId,
+          done: const Value(false),
+        ),
+      );
+
+  Future<List<SyncQueueData>> getPendingSync() =>
+      (select(syncQueue)..where((q) => q.done.equals(false))).get();
+
+  Future<void> markSyncDone(int id) =>
+      (update(syncQueue)..where((q) => q.id.equals(id)))
+          .write(const SyncQueueCompanion(done: Value(true)));
 }
 
 LazyDatabase _openConnection() {

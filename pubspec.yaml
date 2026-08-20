@@ -56,9 +56,18 @@ dependencies:
   csv: ^6.0.0
   share_plus: ^13.3.0
 
+  # fonts
+  google_fonts: ^6.2.1
+
+  # cloud sync
+  supabase_flutter: ^2.5.0
+  connectivity_plus: ^6.0.3
+  shared_preferences: ^2.3.4
+
   # utils
   intl: ^0.19.0
   uuid: ^4.4.0
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
