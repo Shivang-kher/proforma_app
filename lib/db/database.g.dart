@@ -233,6 +233,18 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _patientUuidMeta = const VerificationMeta(
+    'patientUuid',
+  );
+  @override
+  late final GeneratedColumn<String> patientUuid = GeneratedColumn<String>(
+    'patient_uuid',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -256,6 +268,7 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     familyHistory,
     familyHistoryOthers,
     createdAt,
+    patientUuid,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -453,6 +466,15 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('patient_uuid')) {
+      context.handle(
+        _patientUuidMeta,
+        patientUuid.isAcceptableOrUnknown(
+          data['patient_uuid']!,
+          _patientUuidMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -546,6 +568,10 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      patientUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}patient_uuid'],
+      )!,
     );
   }
 
@@ -577,6 +603,7 @@ class Patient extends DataClass implements Insertable<Patient> {
   final String familyHistory;
   final String? familyHistoryOthers;
   final DateTime createdAt;
+  final String patientUuid;
   const Patient({
     required this.id,
     required this.serialNumber,
@@ -599,6 +626,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     required this.familyHistory,
     this.familyHistoryOthers,
     required this.createdAt,
+    required this.patientUuid,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -640,6 +668,7 @@ class Patient extends DataClass implements Insertable<Patient> {
       map['family_history_others'] = Variable<String>(familyHistoryOthers);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['patient_uuid'] = Variable<String>(patientUuid);
     return map;
   }
 
@@ -682,6 +711,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           ? const Value.absent()
           : Value(familyHistoryOthers),
       createdAt: Value(createdAt),
+      patientUuid: Value(patientUuid),
     );
   }
 
@@ -722,6 +752,7 @@ class Patient extends DataClass implements Insertable<Patient> {
         json['familyHistoryOthers'],
       ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      patientUuid: serializer.fromJson<String>(json['patientUuid']),
     );
   }
   @override
@@ -751,6 +782,7 @@ class Patient extends DataClass implements Insertable<Patient> {
       'familyHistory': serializer.toJson<String>(familyHistory),
       'familyHistoryOthers': serializer.toJson<String?>(familyHistoryOthers),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'patientUuid': serializer.toJson<String>(patientUuid),
     };
   }
 
@@ -776,6 +808,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     String? familyHistory,
     Value<String?> familyHistoryOthers = const Value.absent(),
     DateTime? createdAt,
+    String? patientUuid,
   }) => Patient(
     id: id ?? this.id,
     serialNumber: serialNumber ?? this.serialNumber,
@@ -810,6 +843,7 @@ class Patient extends DataClass implements Insertable<Patient> {
         ? familyHistoryOthers.value
         : this.familyHistoryOthers,
     createdAt: createdAt ?? this.createdAt,
+    patientUuid: patientUuid ?? this.patientUuid,
   );
   Patient copyWithCompanion(PatientsCompanion data) {
     return Patient(
@@ -860,6 +894,9 @@ class Patient extends DataClass implements Insertable<Patient> {
           ? data.familyHistoryOthers.value
           : this.familyHistoryOthers,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      patientUuid: data.patientUuid.present
+          ? data.patientUuid.value
+          : this.patientUuid,
     );
   }
 
@@ -886,7 +923,8 @@ class Patient extends DataClass implements Insertable<Patient> {
           ..write('surgicalHistoryOthers: $surgicalHistoryOthers, ')
           ..write('familyHistory: $familyHistory, ')
           ..write('familyHistoryOthers: $familyHistoryOthers, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('patientUuid: $patientUuid')
           ..write(')'))
         .toString();
   }
@@ -914,6 +952,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     familyHistory,
     familyHistoryOthers,
     createdAt,
+    patientUuid,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -939,7 +978,8 @@ class Patient extends DataClass implements Insertable<Patient> {
           other.surgicalHistoryOthers == this.surgicalHistoryOthers &&
           other.familyHistory == this.familyHistory &&
           other.familyHistoryOthers == this.familyHistoryOthers &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.patientUuid == this.patientUuid);
 }
 
 class PatientsCompanion extends UpdateCompanion<Patient> {
@@ -964,6 +1004,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
   final Value<String> familyHistory;
   final Value<String?> familyHistoryOthers;
   final Value<DateTime> createdAt;
+  final Value<String> patientUuid;
   const PatientsCompanion({
     this.id = const Value.absent(),
     this.serialNumber = const Value.absent(),
@@ -986,6 +1027,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     this.familyHistory = const Value.absent(),
     this.familyHistoryOthers = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.patientUuid = const Value.absent(),
   });
   PatientsCompanion.insert({
     this.id = const Value.absent(),
@@ -1009,6 +1051,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     required String familyHistory,
     this.familyHistoryOthers = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.patientUuid = const Value.absent(),
   }) : serialNumber = Value(serialNumber),
        hospitalNumber = Value(hospitalNumber),
        unit = Value(unit),
@@ -1042,6 +1085,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Expression<String>? familyHistory,
     Expression<String>? familyHistoryOthers,
     Expression<DateTime>? createdAt,
+    Expression<String>? patientUuid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1069,6 +1113,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
       if (familyHistoryOthers != null)
         'family_history_others': familyHistoryOthers,
       if (createdAt != null) 'created_at': createdAt,
+      if (patientUuid != null) 'patient_uuid': patientUuid,
     });
   }
 
@@ -1094,6 +1139,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Value<String>? familyHistory,
     Value<String?>? familyHistoryOthers,
     Value<DateTime>? createdAt,
+    Value<String>? patientUuid,
   }) {
     return PatientsCompanion(
       id: id ?? this.id,
@@ -1118,6 +1164,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
       familyHistory: familyHistory ?? this.familyHistory,
       familyHistoryOthers: familyHistoryOthers ?? this.familyHistoryOthers,
       createdAt: createdAt ?? this.createdAt,
+      patientUuid: patientUuid ?? this.patientUuid,
     );
   }
 
@@ -1195,6 +1242,9 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (patientUuid.present) {
+      map['patient_uuid'] = Variable<String>(patientUuid.value);
+    }
     return map;
   }
 
@@ -1221,7 +1271,8 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
           ..write('surgicalHistoryOthers: $surgicalHistoryOthers, ')
           ..write('familyHistory: $familyHistory, ')
           ..write('familyHistoryOthers: $familyHistoryOthers, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('patientUuid: $patientUuid')
           ..write(')'))
         .toString();
   }
@@ -6490,6 +6541,7 @@ typedef $$PatientsTableCreateCompanionBuilder =
       required String familyHistory,
       Value<String?> familyHistoryOthers,
       Value<DateTime> createdAt,
+      Value<String> patientUuid,
     });
 typedef $$PatientsTableUpdateCompanionBuilder =
     PatientsCompanion Function({
@@ -6514,6 +6566,7 @@ typedef $$PatientsTableUpdateCompanionBuilder =
       Value<String> familyHistory,
       Value<String?> familyHistoryOthers,
       Value<DateTime> createdAt,
+      Value<String> patientUuid,
     });
 
 final class $$PatientsTableReferences
@@ -6726,6 +6779,11 @@ class $$PatientsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get patientUuid => $composableBuilder(
+    column: $table.patientUuid,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6944,6 +7002,11 @@ class $$PatientsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get patientUuid => $composableBuilder(
+    column: $table.patientUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PatientsTableAnnotationComposer
@@ -7043,6 +7106,11 @@ class $$PatientsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get patientUuid => $composableBuilder(
+    column: $table.patientUuid,
+    builder: (column) => column,
+  );
 
   Expression<T> preChemoAssessmentsRefs<T extends Object>(
     Expression<T> Function($$PreChemoAssessmentsTableAnnotationComposer a) f,
@@ -7203,6 +7271,7 @@ class $$PatientsTableTableManager
                 Value<String> familyHistory = const Value.absent(),
                 Value<String?> familyHistoryOthers = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> patientUuid = const Value.absent(),
               }) => PatientsCompanion(
                 id: id,
                 serialNumber: serialNumber,
@@ -7225,6 +7294,7 @@ class $$PatientsTableTableManager
                 familyHistory: familyHistory,
                 familyHistoryOthers: familyHistoryOthers,
                 createdAt: createdAt,
+                patientUuid: patientUuid,
               ),
           createCompanionCallback:
               ({
@@ -7249,6 +7319,7 @@ class $$PatientsTableTableManager
                 required String familyHistory,
                 Value<String?> familyHistoryOthers = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> patientUuid = const Value.absent(),
               }) => PatientsCompanion.insert(
                 id: id,
                 serialNumber: serialNumber,
@@ -7271,6 +7342,7 @@ class $$PatientsTableTableManager
                 familyHistory: familyHistory,
                 familyHistoryOthers: familyHistoryOthers,
                 createdAt: createdAt,
+                patientUuid: patientUuid,
               ),
           withReferenceMapper: (p0) => p0
               .map(

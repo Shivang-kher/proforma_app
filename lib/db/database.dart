@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 part 'database.g.dart';
 
@@ -30,6 +31,8 @@ class Patients extends Table {
   TextColumn get familyHistory => text()(); // comma-separated
   TextColumn get familyHistoryOthers => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  // Cross-device identity key — single row per patient in Supabase.
+  TextColumn get patientUuid => text().withDefault(const Constant(''))();
 }
 
 class PreChemoAssessments extends Table {
@@ -157,12 +160,21 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
           if (from < 2) await m.createTable(syncQueue);
+          if (from < 3) {
+            await m.addColumn(patients, patients.patientUuid);
+            final existing = await select(patients).get();
+            for (final p in existing) {
+              await (update(patients)..where((t) => t.id.equals(p.id)))
+                  .write(PatientsCompanion(
+                      patientUuid: Value(const Uuid().v4())));
+            }
+          }
         },
       );
 
@@ -177,9 +189,24 @@ class AppDatabase extends _$AppDatabase {
   Future<Patient?> getPatientOrNull(int id) =>
       (select(patients)..where((p) => p.id.equals(id))).getSingleOrNull();
 
-  Future<int> insertPatient(PatientsCompanion p) => into(patients).insert(p);
+  Future<int> insertPatient(PatientsCompanion p) {
+    final uuid = p.patientUuid.present && p.patientUuid.value.isNotEmpty
+        ? p.patientUuid.value
+        : const Uuid().v4();
+    return into(patients).insert(p.copyWith(patientUuid: Value(uuid)));
+  }
 
-  Future<bool> updatePatient(PatientsCompanion p) => update(patients).replace(p);
+  Future<bool> updatePatient(PatientsCompanion p) async {
+    // Preserve existing UUID if the companion doesn't carry one.
+    if (!p.patientUuid.present || p.patientUuid.value.isEmpty) {
+      final existing = await getPatientOrNull(p.id.value);
+      if (existing != null) {
+        return update(patients)
+            .replace(p.copyWith(patientUuid: Value(existing.patientUuid)));
+      }
+    }
+    return update(patients).replace(p);
+  }
 
   Future<int> deletePatient(int id) =>
       (delete(patients)..where((p) => p.id.equals(id))).go();
@@ -274,6 +301,31 @@ class AppDatabase extends _$AppDatabase {
   Future<Patient?> getPatientByHospitalNumber(String hospitalNumber) =>
       (select(patients)..where((p) => p.hospitalNumber.equals(hospitalNumber)))
           .getSingleOrNull();
+
+  Future<Patient?> getPatientByUuid(String uuid) =>
+      (select(patients)..where((p) => p.patientUuid.equals(uuid)))
+          .getSingleOrNull();
+
+  Future<int> upsertPatientByUuid(PatientsCompanion companion) async {
+    final uuid = companion.patientUuid.present ? companion.patientUuid.value : '';
+    // Prefer UUID match, fall back to hospital number for legacy rows.
+    Patient? existing;
+    if (uuid.isNotEmpty) existing = await getPatientByUuid(uuid);
+    existing ??=
+        await getPatientByHospitalNumber(companion.hospitalNumber.value);
+
+    if (existing != null) {
+      // Always stamp the authoritative UUID onto the local row.
+      final effectiveUuid =
+          uuid.isNotEmpty ? uuid : existing.patientUuid;
+      await (update(patients)..where((p) => p.id.equals(existing!.id))).write(
+          companion.copyWith(
+              id: Value(existing.id),
+              patientUuid: Value(effectiveUuid)));
+      return existing.id;
+    }
+    return insertPatient(companion);
+  }
 
   Future<int> getPatientCount() async {
     final count = countAll();

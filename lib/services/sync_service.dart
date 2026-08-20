@@ -13,21 +13,43 @@ class SyncService {
   AppDatabase? _db;
   String? _deviceId;
   StreamSubscription? _connectivitySub;
+  RealtimeChannel? _realtimeChannel;
   bool _flushing = false;
+  DateTime? _lastPull;
 
   Future<void> init(AppDatabase db) async {
     _db = db;
     _deviceId = await _getOrCreateDeviceId();
-    await _restoreIfNewDevice();
     unawaited(_flush());
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
       if (results.any((r) => r != ConnectivityResult.none)) {
         unawaited(_flush());
       }
     });
+    _subscribeRealtime();
   }
 
-  void dispose() => _connectivitySub?.cancel();
+  void dispose() {
+    _connectivitySub?.cancel();
+    _realtimeChannel?.unsubscribe();
+  }
+
+  // ── Realtime (instant cross-device sync) ──────────────────
+
+  void _subscribeRealtime() {
+    final client = Supabase.instance.client;
+    _realtimeChannel = client
+        .channel('proforma-sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'patients',
+          callback: (_) => unawaited(_flush()),
+        )
+        .subscribe();
+  }
+
+  // ── Device identity ───────────────────────────────────────
 
   Future<String> _getOrCreateDeviceId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -39,97 +61,169 @@ class SyncService {
     return id;
   }
 
-  // ── Cloud restore (new device onboarding) ──────────────────
+  // ── Flush (push then pull) ────────────────────────────────
 
-  Future<void> _restoreIfNewDevice() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('proforma_cloud_restored') == true) return;
-
-    final count = await _db!.getPatientCount();
-    if (count > 0) {
-      await prefs.setBool('proforma_cloud_restored', true);
-      return;
-    }
-
+  Future<void> _flush() async {
+    if (_db == null || _flushing) return;
+    _flushing = true;
     try {
-      await _restoreFromCloud();
-      await prefs.setBool('proforma_cloud_restored', true);
-    } catch (_) {
-      // Network unavailable or Supabase error — will retry next launch.
+      // Push pending local changes first.
+      final pending = await _db!.getPendingSync();
+      for (final item in pending) {
+        try {
+          await _push(item);
+          await _db!.markSyncDone(item.id);
+        } catch (_) {}
+      }
+      // Pull from Supabase (throttled to once per 10 s).
+      final now = DateTime.now();
+      if (_lastPull == null || now.difference(_lastPull!).inSeconds >= 10) {
+        try {
+          await _pullFromCloud();
+          _lastPull = now;
+        } catch (_) {}
+      }
+    } finally {
+      _flushing = false;
     }
   }
 
-  Future<void> _restoreFromCloud() async {
+  // ── Pull: Supabase → local ─────────────────────────────────
+
+  Future<void> _pullFromCloud() async {
     final client = Supabase.instance.client;
     final db = _db!;
 
-    final patientRows =
-        await client.from('patients').select() as List<dynamic>;
+    // 1. Soft-deleted patients: remove from local DB.
+    final deletedRows = await client
+        .from('patients')
+        .select('patient_uuid, hospital_number')
+        .eq('is_deleted', true) as List<dynamic>;
+
+    for (final raw in deletedRows) {
+      final row = raw as Map<String, dynamic>;
+      final uuid = (row['patient_uuid'] as String?) ?? '';
+      final hn = (row['hospital_number'] as String?) ?? '';
+      Patient? local;
+      if (uuid.isNotEmpty) local = await db.getPatientByUuid(uuid);
+      local ??= hn.isNotEmpty ? await db.getPatientByHospitalNumber(hn) : null;
+      if (local != null) await db.deletePatientCascade(local.id);
+    }
+
+    // 2. Active patients.
+    final patientRows = await client
+        .from('patients')
+        .select()
+        .eq('is_deleted', false) as List<dynamic>;
     if (patientRows.isEmpty) return;
 
+    // Fetch all child form tables in parallel.
     final results = await Future.wait([
       client.from('pre_chemo_assessments').select() as Future<dynamic>,
       client.from('post_chemo_assessments').select() as Future<dynamic>,
       client.from('cytoreduction_ct_findings').select() as Future<dynamic>,
       client.from('relapse_followups').select() as Future<dynamic>,
     ]);
-
     final preRows = results[0] as List<dynamic>;
     final postRows = results[1] as List<dynamic>;
     final cytoRows = results[2] as List<dynamic>;
     final relapseRows = results[3] as List<dynamic>;
 
-    // Deduplicate by hospital_number — keep most recently created row as canonical.
-    // All (device_id, local_id) variants for the same hospital_number map to one
-    // local patient so child forms from any device are merged correctly.
-    final Map<String, List<Map<String, dynamic>>> byHospitalNumber = {};
+    // Deduplicate Supabase patients by hospital_number (most recent wins).
+    final Map<String, Map<String, dynamic>> canonical = {};
     for (final raw in patientRows) {
       final row = raw as Map<String, dynamic>;
       final hn = (row['hospital_number'] as String?) ?? '';
-      byHospitalNumber.putIfAbsent(hn, () => []).add(row);
+      final existing = canonical[hn];
+      if (existing == null ||
+          _parseDateTime(row['created_at'])
+              .isAfter(_parseDateTime(existing['created_at']))) {
+        canonical[hn] = row;
+      }
     }
 
-    final Map<String, int> idMap = {};
+    // Build lookup: "(device_id):(local_id)" → local patient ID (for child forms).
+    final Map<String, int> cloudKeyToLocalId = {};
+    // Build lookup: patient_uuid → local patient ID.
+    final Map<String, int> uuidToLocalId = {};
 
-    for (final group in byHospitalNumber.values) {
-      // Pick the most recently created entry as the one to insert.
-      group.sort((a, b) => _parseDateTime(b['created_at'])
-          .compareTo(_parseDateTime(a['created_at'])));
-      final canonical = group.first;
+    // Upsert each canonical patient.
+    for (final row in canonical.values) {
+      final cloudUuid = (row['patient_uuid'] as String?) ?? '';
+      final localId = await db.upsertPatientByUuid(
+        PatientsCompanion.insert(
+          patientUuid: Value(cloudUuid.isNotEmpty
+              ? cloudUuid
+              : const Uuid().v4()),
+          serialNumber: row['serial_number'] as String? ?? '',
+          hospitalNumber: row['hospital_number'] as String? ?? '',
+          unit: row['unit'] as String? ?? '',
+          name: row['name'] as String? ?? '',
+          age: row['age'] as int? ?? 0,
+          parity: row['parity'] as String? ?? '',
+          address: Value(row['address'] as String?),
+          phone: Value(row['phone'] as String?),
+          menstrualStatus: row['menstrual_status'] as String? ?? '',
+          ageAtMenarche: Value(row['age_at_menarche'] as int?),
+          ageAtMenopause: Value(row['age_at_menopause'] as int?),
+          presentingComplaints: row['presenting_complaints'] as String? ?? '',
+          complaintsDetails: Value(row['complaints_details'] as String?),
+          medicalHistory: row['medical_history'] as String? ?? '',
+          medicalHistoryOthers:
+              Value(row['medical_history_others'] as String?),
+          surgicalHistory: row['surgical_history'] as String? ?? '',
+          surgicalHistoryOthers:
+              Value(row['surgical_history_others'] as String?),
+          familyHistory: row['family_history'] as String? ?? '',
+          familyHistoryOthers:
+              Value(row['family_history_others'] as String?),
+          createdAt: Value(_parseDateTime(row['created_at'])),
+        ),
+      );
+      if (cloudUuid.isNotEmpty) uuidToLocalId[cloudUuid] = localId;
+    }
 
-      final newId = await db.insertPatient(PatientsCompanion.insert(
-        serialNumber: canonical['serial_number'] as String? ?? '',
-        hospitalNumber: canonical['hospital_number'] as String? ?? '',
-        unit: canonical['unit'] as String? ?? '',
-        name: canonical['name'] as String? ?? '',
-        age: canonical['age'] as int? ?? 0,
-        parity: canonical['parity'] as String? ?? '',
-        address: Value(canonical['address'] as String?),
-        phone: Value(canonical['phone'] as String?),
-        menstrualStatus: canonical['menstrual_status'] as String? ?? '',
-        ageAtMenarche: Value(canonical['age_at_menarche'] as int?),
-        ageAtMenopause: Value(canonical['age_at_menopause'] as int?),
-        presentingComplaints: canonical['presenting_complaints'] as String? ?? '',
-        complaintsDetails: Value(canonical['complaints_details'] as String?),
-        medicalHistory: canonical['medical_history'] as String? ?? '',
-        medicalHistoryOthers: Value(canonical['medical_history_others'] as String?),
-        surgicalHistory: canonical['surgical_history'] as String? ?? '',
-        surgicalHistoryOthers: Value(canonical['surgical_history_others'] as String?),
-        familyHistory: canonical['family_history'] as String? ?? '',
-        familyHistoryOthers: Value(canonical['family_history_others'] as String?),
-        createdAt: Value(_parseDateTime(canonical['created_at'])),
-      ));
-
-      // Map every (device_id, local_id) in this group to the same new local ID.
-      for (final row in group) {
-        idMap['${row['device_id']}:${row['local_id']}'] = newId;
+    // Map all (device_id:local_id) pairs from Supabase → local patient ID.
+    for (final raw in patientRows) {
+      final row = raw as Map<String, dynamic>;
+      final cloudUuid = (row['patient_uuid'] as String?) ?? '';
+      final hn = (row['hospital_number'] as String?) ?? '';
+      int? localId;
+      if (cloudUuid.isNotEmpty) localId = uuidToLocalId[cloudUuid];
+      localId ??= (await db.getPatientByHospitalNumber(hn))?.id;
+      if (localId != null) {
+        cloudKeyToLocalId['${row['device_id']}:${row['local_id']}'] = localId;
       }
+    }
+
+    // Upsert child forms.
+    await _upsertChildForms(db, preRows, postRows, cytoRows, relapseRows,
+        uuidToLocalId, cloudKeyToLocalId);
+  }
+
+  Future<void> _upsertChildForms(
+    AppDatabase db,
+    List<dynamic> preRows,
+    List<dynamic> postRows,
+    List<dynamic> cytoRows,
+    List<dynamic> relapseRows,
+    Map<String, int> uuidToLocalId,
+    Map<String, int> cloudKeyToLocalId,
+  ) async {
+    int? resolveLocalId(Map<String, dynamic> row) {
+      final pUuid = (row['patient_uuid'] as String?) ?? '';
+      int? id;
+      if (pUuid.isNotEmpty) id = uuidToLocalId[pUuid];
+      id ??= cloudKeyToLocalId[
+          '${row['device_id']}:${row['patient_local_id']}'];
+      return id;
     }
 
     for (final raw in preRows) {
       final row = raw as Map<String, dynamic>;
-      final localId = idMap['${row['device_id']}:${row['patient_local_id']}'];
+      final localId = resolveLocalId(row);
       if (localId == null) continue;
+      final existingId = (await db.getPreChemo(localId))?.id;
       await db.upsertPreChemo(PreChemoAssessmentsCompanion.insert(
         patientId: localId,
         height: Value(_toDouble(row['height'])),
@@ -151,13 +245,15 @@ class SyncService {
         nlr: Value(_toDouble(row['nlr'])),
         sii: Value(_toDouble(row['sii'])),
         recordedAt: Value(_parseDateTime(row['recorded_at'])),
-      ));
+      ).copyWith(
+          id: existingId != null ? Value(existingId) : const Value.absent()));
     }
 
     for (final raw in postRows) {
       final row = raw as Map<String, dynamic>;
-      final localId = idMap['${row['device_id']}:${row['patient_local_id']}'];
+      final localId = resolveLocalId(row);
       if (localId == null) continue;
+      final existingId = (await db.getPostChemo(localId))?.id;
       await db.upsertPostChemo(PostChemoAssessmentsCompanion.insert(
         patientId: localId,
         nactCycles: Value(row['nact_cycles'] as int?),
@@ -180,13 +276,15 @@ class SyncService {
         ca125Reading2: Value(_toDouble(row['ca125_reading2'])),
         ca125Reading3: Value(_toDouble(row['ca125_reading3'])),
         recordedAt: Value(_parseDateTime(row['recorded_at'])),
-      ));
+      ).copyWith(
+          id: existingId != null ? Value(existingId) : const Value.absent()));
     }
 
     for (final raw in cytoRows) {
       final row = raw as Map<String, dynamic>;
-      final localId = idMap['${row['device_id']}:${row['patient_local_id']}'];
+      final localId = resolveLocalId(row);
       if (localId == null) continue;
+      final existingId = (await db.getCytoreduction(localId))?.id;
       await db.upsertCytoreduction(CytoreductionCtFindingsCompanion.insert(
         patientId: localId,
         chemoResponseScore: Value(row['chemo_response_score'] as String?),
@@ -209,7 +307,8 @@ class SyncService {
         ctAortaIvcPre: Value(row['ct_aorta_ivc_pre'] as String?),
         ctAortaIvcPost: Value(row['ct_aorta_ivc_post'] as String?),
         ctUrinaryBladderPre: Value(row['ct_urinary_bladder_pre'] as String?),
-        ctUrinaryBladderPost: Value(row['ct_urinary_bladder_post'] as String?),
+        ctUrinaryBladderPost:
+            Value(row['ct_urinary_bladder_post'] as String?),
         ctUterusOvariesPre: Value(row['ct_uterus_ovaries_pre'] as String?),
         ctUterusOvariesPost: Value(row['ct_uterus_ovaries_post'] as String?),
         ctLymphNodesPre: Value(row['ct_lymph_nodes_pre'] as String?),
@@ -219,13 +318,15 @@ class SyncService {
         crsAdnexa: Value(row['crs_adnexa'] as String?),
         crsOtherSites: Value(row['crs_other_sites'] as String?),
         recordedAt: Value(_parseDateTime(row['recorded_at'])),
-      ));
+      ).copyWith(
+          id: existingId != null ? Value(existingId) : const Value.absent()));
     }
 
     for (final raw in relapseRows) {
       final row = raw as Map<String, dynamic>;
-      final localId = idMap['${row['device_id']}:${row['patient_local_id']}'];
+      final localId = resolveLocalId(row);
       if (localId == null) continue;
+      final existingId = (await db.getRelapse(localId))?.id;
       await db.upsertRelapse(RelapseFollowupsCompanion.insert(
         patientId: localId,
         recurrenceDate: Value(_parseDateTimeNullable(row['recurrence_date'])),
@@ -235,57 +336,68 @@ class SyncService {
         tfi: Value(row['tfi'] as String?),
         os: Value(row['os'] as String?),
         recordedAt: Value(_parseDateTime(row['recorded_at'])),
-      ));
+      ).copyWith(
+          id: existingId != null ? Value(existingId) : const Value.absent()));
     }
   }
 
-  double? _toDouble(dynamic v) => (v as num?)?.toDouble();
+  // ── Helpers ────────────────────────────────────────────────
 
+  double? _toDouble(dynamic v) => (v as num?)?.toDouble();
   DateTime _parseDateTime(dynamic v) =>
       v != null ? DateTime.parse(v as String) : DateTime.now();
-
   DateTime? _parseDateTimeNullable(dynamic v) =>
       v != null ? DateTime.parse(v as String) : null;
 
-  // ── Cloud push (outbound sync) ─────────────────────────────
+  // ── Push: local → Supabase ─────────────────────────────────
 
   Future<void> deleteFromCloud(int patientId) async {
     if (_deviceId == null) return;
     final client = Supabase.instance.client;
     final did = _deviceId!;
+    final p = await _db?.getPatientOrNull(patientId);
+
     try {
-      await client.from('pre_chemo_assessments').delete().match({'device_id': did, 'patient_local_id': patientId});
-      await client.from('post_chemo_assessments').delete().match({'device_id': did, 'patient_local_id': patientId});
-      await client.from('cytoreduction_ct_findings').delete().match({'device_id': did, 'patient_local_id': patientId});
-      await client.from('relapse_followups').delete().match({'device_id': did, 'patient_local_id': patientId});
-      await client.from('patients').delete().match({'device_id': did, 'local_id': patientId});
-    } catch (_) {
-      // Best-effort — local record is already gone.
-    }
+      if (p != null && p.patientUuid.isNotEmpty) {
+        // Soft-delete patient by UUID — propagates to all devices.
+        await client
+            .from('patients')
+            .update({'is_deleted': true}).eq('patient_uuid', p.patientUuid);
+        // Hard-delete child forms by UUID.
+        for (final table in [
+          'pre_chemo_assessments',
+          'post_chemo_assessments',
+          'cytoreduction_ct_findings',
+          'relapse_followups',
+        ]) {
+          await client
+              .from(table)
+              .delete()
+              .eq('patient_uuid', p.patientUuid);
+        }
+      } else {
+        // Fallback: legacy hard delete by device_id.
+        for (final entry in {
+          'pre_chemo_assessments': 'patient_local_id',
+          'post_chemo_assessments': 'patient_local_id',
+          'cytoreduction_ct_findings': 'patient_local_id',
+          'relapse_followups': 'patient_local_id',
+        }.entries) {
+          await client.from(entry.key).delete().match(
+              {'device_id': did, entry.value: patientId});
+        }
+        await client
+            .from('patients')
+            .delete()
+            .match({'device_id': did, 'local_id': patientId});
+      }
+    } catch (_) {}
   }
 
   Future<void> enqueue(String table, int patientId) async {
     if (_db == null) return;
     await _db!.enqueueSync(table, patientId);
     unawaited(_flush());
-  }
-
-  Future<void> _flush() async {
-    if (_db == null || _flushing) return;
-    _flushing = true;
-    try {
-      final pending = await _db!.getPendingSync();
-      for (final item in pending) {
-        try {
-          await _push(item);
-          await _db!.markSyncDone(item.id);
-        } catch (_) {
-          // Network unavailable — leave in queue for next flush.
-        }
-      }
-    } finally {
-      _flushing = false;
-    }
   }
 
   Future<void> _push(SyncQueueData item) async {
@@ -298,8 +410,10 @@ class SyncService {
         final p = await db.getPatientOrNull(item.patientId);
         if (p == null) return;
         await client.from('patients').upsert({
+          'patient_uuid': p.patientUuid.isNotEmpty ? p.patientUuid : null,
           'device_id': did,
           'local_id': p.id,
+          'is_deleted': false,
           'serial_number': p.serialNumber,
           'hospital_number': p.hospitalNumber,
           'unit': p.unit,
@@ -323,9 +437,11 @@ class SyncService {
         });
 
       case 'pre_chemo':
+        final p = await db.getPatientOrNull(item.patientId);
         final r = await db.getPreChemo(item.patientId);
         if (r == null) return;
         await client.from('pre_chemo_assessments').upsert({
+          'patient_uuid': p?.patientUuid.isNotEmpty == true ? p!.patientUuid : null,
           'device_id': did,
           'patient_local_id': item.patientId,
           'height': r.height,
@@ -350,9 +466,11 @@ class SyncService {
         });
 
       case 'post_chemo':
+        final p = await db.getPatientOrNull(item.patientId);
         final r = await db.getPostChemo(item.patientId);
         if (r == null) return;
         await client.from('post_chemo_assessments').upsert({
+          'patient_uuid': p?.patientUuid.isNotEmpty == true ? p!.patientUuid : null,
           'device_id': did,
           'patient_local_id': item.patientId,
           'nact_cycles': r.nactCycles,
@@ -378,9 +496,11 @@ class SyncService {
         });
 
       case 'cytoreduction':
+        final p = await db.getPatientOrNull(item.patientId);
         final r = await db.getCytoreduction(item.patientId);
         if (r == null) return;
         await client.from('cytoreduction_ct_findings').upsert({
+          'patient_uuid': p?.patientUuid.isNotEmpty == true ? p!.patientUuid : null,
           'device_id': did,
           'patient_local_id': item.patientId,
           'chemo_response_score': r.chemoResponseScore,
@@ -416,9 +536,11 @@ class SyncService {
         });
 
       case 'relapse':
+        final p = await db.getPatientOrNull(item.patientId);
         final r = await db.getRelapse(item.patientId);
         if (r == null) return;
         await client.from('relapse_followups').upsert({
+          'patient_uuid': p?.patientUuid.isNotEmpty == true ? p!.patientUuid : null,
           'device_id': did,
           'patient_local_id': item.patientId,
           'recurrence_date': r.recurrenceDate?.toIso8601String(),
