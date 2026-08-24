@@ -10,6 +10,10 @@ import 'services/sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  assert(
+    supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty,
+    'Missing Supabase credentials. Run with: flutter run --dart-define-from-file=.env.json',
+  );
   await NotificationService.instance.init();
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
   runApp(const ProviderScope(child: ProformaApp()));
