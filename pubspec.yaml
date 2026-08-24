@@ -64,6 +64,10 @@ dependencies:
   connectivity_plus: ^6.0.3
   shared_preferences: ^2.3.4
 
+  # auth
+  local_auth: ^2.3.0
+  flutter_secure_storage: ^11.0.0
+
   # utils
   intl: ^0.19.0
   uuid: ^4.4.0

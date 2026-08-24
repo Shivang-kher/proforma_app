@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Proforma uses Face ID to protect patient data on this device.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Proforma uses notifications to remind you about scheduled patient follow-ups.</string>
 	<key>CFBundleDevelopmentRegion</key>
