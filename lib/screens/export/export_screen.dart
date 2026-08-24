@@ -15,7 +15,36 @@ class ExportScreen extends ConsumerStatefulWidget {
 class _ExportScreenState extends ConsumerState<ExportScreen> {
   _ExportType? _exporting;
 
+  Future<bool> _confirmFullExport() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.warning_amber_rounded,
+                color: Colors.orange, size: 32),
+            title: const Text('Contains Patient PII'),
+            content: const Text(
+              'This export includes patient names, phone numbers, and home '
+              'addresses.\n\nOnly share with authorised personnel over secure '
+              'channels. Do not attach to emails or upload to public storage.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Export Anyway'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Future<void> _run(_ExportType type) async {
+    if (type == _ExportType.full && !await _confirmFullExport()) return;
     setState(() => _exporting = type);
     try {
       final svc = ExportService(ref.read(databaseProvider));

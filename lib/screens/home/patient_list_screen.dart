@@ -247,61 +247,86 @@ class _PatientListScreenState extends ConsumerState<PatientListScreen> {
 
 // ── Widgets ───────────────────────────────────────────────────
 
-class _PhoneRow extends StatelessWidget {
+class _PhoneRow extends StatefulWidget {
   const _PhoneRow({required this.phone});
   final String phone;
 
   @override
+  State<_PhoneRow> createState() => _PhoneRowState();
+}
+
+class _PhoneRowState extends State<_PhoneRow> {
+  String get phone => widget.phone;
+
+  bool _revealed = false;
+
+  @override
   Widget build(BuildContext context) {
-    final first = phone.split('|').where((s) => s.isNotEmpty).firstOrNull;
-    if (first == null) return const SizedBox.shrink();
-    final extra = phone.split('|').where((s) => s.isNotEmpty).length - 1;
-    return Row(
-      children: [
-        Icon(Icons.phone_rounded,
-            size: 13, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 4),
-        Text(first,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Theme.of(context).colorScheme.primary)),
-        if (extra > 0)
-          Text(' +$extra more',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  )),
-        const SizedBox(width: 6),
-        InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => launchUrl(Uri(scheme: 'tel', path: first)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.call_rounded,
-                    size: 11,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 3),
-                Text('Call',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    )),
-              ],
-            ),
-          ),
-        ),
-      ],
+    final numbers =
+        phone.split('|').where((s) => s.isNotEmpty).toList();
+    if (numbers.isEmpty) return const SizedBox.shrink();
+    final first = numbers.first;
+    final extra = numbers.length - 1;
+    final color = Theme.of(context).colorScheme.primary;
+
+    return GestureDetector(
+      onTap: () => setState(() => _revealed = !_revealed),
+      child: Row(
+        children: [
+          Icon(Icons.phone_rounded, size: 13, color: color),
+          const SizedBox(width: 4),
+          _revealed
+              ? Row(
+                  children: [
+                    Text(first,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: color)),
+                    if (extra > 0)
+                      Text(' +$extra more',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outline)),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => launchUrl(Uri(scheme: 'tel', path: first)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.call_rounded, size: 11, color: color),
+                            const SizedBox(width: 3),
+                            Text('Call',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: color,
+                                )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : Text('Tap to reveal',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Theme.of(context).colorScheme.outline)),
+        ],
+      ),
     );
   }
 }

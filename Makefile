@@ -43,13 +43,13 @@ watch:
 
 # ── run ───────────────────────────────────────────────────
 run-ios:
-	flutter run -d ios
+	flutter run -d ios --dart-define-from-file=.env.json
 
 run-mac:
-	flutter run -d macos
+	flutter run -d macos --dart-define-from-file=.env.json
 
 run-web:
-	flutter run -d chrome
+	flutter run -d chrome --dart-define-from-file=.env.json
 
 # ── clean ─────────────────────────────────────────────────
 clean:
