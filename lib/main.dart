@@ -5,6 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'providers/database_provider.dart';
 import 'router.dart';
+import 'screens/auth/lock_screen.dart';
+import 'screens/auth/pin_setup_screen.dart';
+import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
 
@@ -16,6 +19,7 @@ void main() async {
   );
   await NotificationService.instance.init();
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
+  await AuthService.instance.init();
   runApp(const ProviderScope(child: ProformaApp()));
 }
 
@@ -26,17 +30,29 @@ class ProformaApp extends ConsumerStatefulWidget {
   ConsumerState<ProformaApp> createState() => _ProformaAppState();
 }
 
-class _ProformaAppState extends ConsumerState<ProformaApp> {
+class _ProformaAppState extends ConsumerState<ProformaApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(SyncService.instance.init(ref.read(databaseProvider)));
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     SyncService.instance.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      AuthService.instance.onBackground();
+    } else if (state == AppLifecycleState.resumed) {
+      unawaited(AuthService.instance.onForeground());
+    }
   }
 
   @override
@@ -59,6 +75,20 @@ class _ProformaAppState extends ConsumerState<ProformaApp> {
         useMaterial3: true,
       ),
       routerConfig: router,
+      builder: (context, child) {
+        return ListenableBuilder(
+          listenable: AuthService.instance,
+          builder: (context, _) {
+            if (!AuthService.instance.isPinSet) {
+              return const PinSetupScreen();
+            }
+            if (AuthService.instance.isLocked) {
+              return const LockScreen();
+            }
+            return child ?? const SizedBox();
+          },
+        );
+      },
     );
   }
 }

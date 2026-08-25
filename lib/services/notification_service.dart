@@ -62,7 +62,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       patientId,
       'Follow-up reminder',
-      'Time to check on $patientName',
+      'A patient follow-up is due. Open Proforma to view.',
       scheduled,
       const NotificationDetails(iOS: _channel),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -77,7 +77,7 @@ class NotificationService {
     await _plugin.zonedSchedule(
       99999,
       'Test notification',
-      'Follow-up reminder for $patientName',
+      'A patient follow-up is due. Open Proforma to view.',
       scheduled,
       const NotificationDetails(iOS: _channel),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

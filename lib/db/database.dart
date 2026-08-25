@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
@@ -365,10 +366,18 @@ class AppDatabase extends _$AppDatabase {
           .write(const SyncQueueCompanion(done: Value(true)));
 }
 
+const _backupChannel = MethodChannel('proforma/backup');
+
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'proforma.db'));
+    // Touch the file before setting NSURLIsExcludedFromBackupKey — the OS
+    // rejects the attribute on a path that doesn't exist yet.
+    if (!await file.exists()) await file.create(recursive: true);
+    try {
+      await _backupChannel.invokeMethod('excludeFromBackup', file.path);
+    } catch (_) {}
     return NativeDatabase.createInBackground(file);
   });
 }
