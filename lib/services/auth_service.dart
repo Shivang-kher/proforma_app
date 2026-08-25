@@ -23,6 +23,7 @@ class AuthService extends ChangeNotifier {
 
   bool _locked  = true;
   bool _pinSet  = false;
+  DateTime? _backgroundAt;
 
   bool get isLocked => _locked;
   bool get isPinSet => _pinSet;
@@ -61,6 +62,9 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> authenticateWithBiometrics() async {
+    // Biometric must respect the same lockout as PIN — an attacker could
+    // otherwise bypass progressive lockout by force-quitting and relaunching.
+    if (await lockoutRemaining() != null) return false;
     try {
       final ok = await _localAuth.authenticate(
         localizedReason: 'Unlock Proforma to access patient data',
@@ -132,14 +136,19 @@ class AuthService extends ChangeNotifier {
   }
 
   void onBackground() {
-    _storage.write(key: _bgKey, value: DateTime.now().toIso8601String());
+    // Store in-memory first so onForeground() can relock even if the process
+    // is suspended before the Keychain write completes (iOS may defer it).
+    _backgroundAt = DateTime.now();
+    unawaited(_storage.write(key: _bgKey, value: _backgroundAt!.toIso8601String()));
   }
 
   Future<void> onForeground() async {
     if (!_pinSet) return;
-    final str = await _storage.read(key: _bgKey);
-    if (str == null) return;
-    final bgTime = DateTime.tryParse(str);
+    // Prefer the in-memory value (reliable on warm resume); fall back to
+    // Keychain (needed after a cold start where onBackground ran in a prior process).
+    final bgTime = _backgroundAt ??
+        DateTime.tryParse(await _storage.read(key: _bgKey) ?? '');
+    _backgroundAt = null;
     if (bgTime == null) return;
     if (DateTime.now().difference(bgTime).inSeconds >= _relockSeconds) {
       _locked = true;

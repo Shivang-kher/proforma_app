@@ -372,7 +372,9 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'proforma.db'));
-    // Exclude from iCloud backup — PHI must not leave the device via cloud sync.
+    // Touch the file before setting NSURLIsExcludedFromBackupKey — the OS
+    // rejects the attribute on a path that doesn't exist yet.
+    if (!await file.exists()) await file.create(recursive: true);
     try {
       await _backupChannel.invokeMethod('excludeFromBackup', file.path);
     } catch (_) {}
