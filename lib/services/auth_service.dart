@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -16,7 +18,6 @@ class AuthService extends ChangeNotifier {
   static const _bgKey         = 'proforma_background_at';
   static const _relockSeconds = 60;
   static const _maxFails      = 3;
-  static const _lockoutSecs   = 30;
 
   final _localAuth = LocalAuthentication();
 
@@ -26,10 +27,27 @@ class AuthService extends ChangeNotifier {
   bool get isLocked => _locked;
   bool get isPinSet => _pinSet;
 
+  // SHA-256 with a static app-level salt. Prevents raw PIN exposure from a
+  // Keychain dump while keeping storage simple (no per-device salt needed for
+  // a 6-digit numeric space that's already protected by lockout).
+  static String _hashPin(String pin) {
+    final bytes = utf8.encode('${pin}proforma_pin_v1');
+    return sha256.convert(bytes).toString();
+  }
+
   Future<void> init() async {
-    final pin = await _storage.read(key: _pinKey);
-    _pinSet  = pin != null && pin.isNotEmpty;
-    _locked  = _pinSet;
+    final stored = await _storage.read(key: _pinKey);
+    if (stored == null || stored.isEmpty) {
+      _pinSet = false;
+      _locked = false;
+    } else {
+      _pinSet = true;
+      _locked = true;
+      // One-time migration: if stored value is a raw 6-digit PIN, hash it.
+      if (stored.length == 6 && stored.runes.every((c) => c >= 48 && c <= 57)) {
+        await _storage.write(key: _pinKey, value: _hashPin(stored));
+      }
+    }
     notifyListeners();
   }
 
@@ -76,11 +94,20 @@ class AuthService extends ChangeNotifier {
     return int.tryParse(str ?? '0') ?? 0;
   }
 
+  // Progressive lockout: fails accumulate across lockout periods, never resetting
+  // until a correct PIN is entered. Each group of _maxFails triggers a longer lockout.
+  int _lockoutSeconds(int totalFails) {
+    final round = (totalFails / _maxFails).ceil();
+    if (round <= 1) return 60;      // 1 min after 3 fails
+    if (round == 2) return 300;     // 5 min after 6 fails
+    return 1800;                    // 30 min after 9+ fails
+  }
+
   Future<bool> validatePin(String pin) async {
     if (await lockoutRemaining() != null) return false;
 
     final stored = await _storage.read(key: _pinKey);
-    if (stored == pin) {
+    if (stored == _hashPin(pin)) {
       await _storage.delete(key: _failKey);
       await _storage.delete(key: _lockoutKey);
       _locked = false;
@@ -89,18 +116,16 @@ class AuthService extends ChangeNotifier {
     }
 
     final fails = await failCount() + 1;
-    if (fails >= _maxFails) {
-      final until = DateTime.now().add(const Duration(seconds: _lockoutSecs));
+    await _storage.write(key: _failKey, value: fails.toString());
+    if (fails % _maxFails == 0) {
+      final until = DateTime.now().add(Duration(seconds: _lockoutSeconds(fails)));
       await _storage.write(key: _lockoutKey, value: until.toIso8601String());
-      await _storage.delete(key: _failKey);
-    } else {
-      await _storage.write(key: _failKey, value: fails.toString());
     }
     return false;
   }
 
   Future<void> setPin(String pin) async {
-    await _storage.write(key: _pinKey, value: pin);
+    await _storage.write(key: _pinKey, value: _hashPin(pin));
     _pinSet = true;
     _locked = false;
     notifyListeners();

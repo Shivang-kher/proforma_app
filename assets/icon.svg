@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1245BF"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F0F4FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <!-- Subtle inner glow ring -->
+  <rect width="1024" height="1024" rx="224" fill="none" stroke="white" stroke-width="3" opacity="0.12"/>
+
+  <!-- Clipboard card shadow -->
+  <rect x="248" y="228" width="528" height="620" rx="40" fill="#0A2A8A" opacity="0.30"/>
+
+  <!-- Clipboard card body -->
+  <rect x="240" y="216" width="528" height="620" rx="40" fill="url(#card)"/>
+
+  <!-- Clipboard clip (top centre) -->
+  <rect x="424" y="188" width="176" height="80" rx="22" fill="#1A56DB"/>
+  <rect x="450" y="200" width="124" height="56" rx="14" fill="#2563EB"/>
+  <!-- Hole in clip -->
+  <circle cx="512" cy="228" r="16" fill="#1245BF"/>
+
+  <!-- ── Content area ── -->
+
+  <!-- Header block — patient meta -->
+  <rect x="296" y="316" width="416" height="24" rx="12" fill="#BFDBFE"/>
+  <rect x="296" y="354" width="300" height="18" rx="9" fill="#DBEAFE"/>
+
+  <!-- Thin divider -->
+  <rect x="296" y="394" width="416" height="2" rx="1" fill="#DBEAFE"/>
+
+  <!-- Medical cross icon block -->
+  <rect x="296" y="416" width="88" height="88" rx="18" fill="#EFF6FF"/>
+  <!-- Cross vertical bar -->
+  <rect x="326" y="428" width="28" height="64" rx="8" fill="#1A56DB"/>
+  <!-- Cross horizontal bar -->
+  <rect x="306" y="448" width="68" height="24" rx="8" fill="#1A56DB"/>
+
+  <!-- Lines beside cross -->
+  <rect x="406" y="428" width="306" height="16" rx="8" fill="#DBEAFE"/>
+  <rect x="406" y="458" width="248" height="16" rx="8" fill="#DBEAFE"/>
+  <rect x="406" y="488" width="276" height="16" rx="8" fill="#DBEAFE"/>
+
+  <!-- Second row: checkboxes + lines -->
+  <rect x="296" y="526" width="416" height="2" rx="1" fill="#DBEAFE"/>
+
+  <rect x="296" y="548" width="24" height="24" rx="6" fill="#1A56DB"/>
+  <path d="M301 560 l7 7 l13 -14" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="336" y="552" width="240" height="14" rx="7" fill="#DBEAFE"/>
+
+  <rect x="296" y="590" width="24" height="24" rx="6" fill="#1A56DB" opacity="0.25"/>
+  <rect x="336" y="594" width="190" height="14" rx="7" fill="#DBEAFE"/>
+
+  <rect x="296" y="632" width="24" height="24" rx="6" fill="#1A56DB" opacity="0.25"/>
+  <rect x="336" y="636" width="220" height="14" rx="7" fill="#DBEAFE"/>
+
+  <!-- ECG / pulse strip -->
+  <rect x="240" y="724" width="528" height="112" rx="0" fill="none"/>
+  <rect x="240" y="724" width="528" height="112" rx="40" fill="#1A56DB" opacity="0"/>
+
+  <!-- ECG band at bottom of card -->
+  <rect x="240" y="716" width="528" height="120" rx="0"
+        fill="#1A56DB" opacity="0.06"/>
+  <!-- Round bottom corners only -->
+  <rect x="240" y="716" width="528" height="60" fill="#F0F4FF" opacity="0.5"/>
+  <rect x="240" y="756" width="528" height="80" rx="40" fill="#EFF6FF"/>
+
+  <!-- ECG line -->
+  <polyline
+    points="270,796  330,796  354,756  372,836  390,756  408,796  480,796  504,772  516,820  528,772  542,796  754,796"
+    stroke="#1A56DB"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    opacity="0.85"
+  />
+
+</svg>
