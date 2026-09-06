@@ -14,6 +14,7 @@ class Patients extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get serialNumber => text()();
   TextColumn get hospitalNumber => text()();
+  TextColumn get oldHospitalId => text().nullable()();
   TextColumn get unit => text()();
   TextColumn get name => text()();
   IntColumn get age => integer()();
@@ -163,7 +164,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -185,6 +186,9 @@ class AppDatabase extends _$AppDatabase {
           if (from < 4) {
             await m.addColumn(preChemoAssessments, preChemoAssessments.totalWbc);
             await m.addColumn(postChemoAssessments, postChemoAssessments.totalWbc);
+          }
+          if (from < 5) {
+            await m.addColumn(patients, patients.oldHospitalId);
           }
         },
       );

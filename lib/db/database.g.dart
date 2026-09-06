@@ -43,6 +43,17 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _oldHospitalIdMeta = const VerificationMeta(
+    'oldHospitalId',
+  );
+  @override
+  late final GeneratedColumn<String> oldHospitalId = GeneratedColumn<String>(
+    'old_hospital_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _unitMeta = const VerificationMeta('unit');
   @override
   late final GeneratedColumn<String> unit = GeneratedColumn<String>(
@@ -250,6 +261,7 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
     id,
     serialNumber,
     hospitalNumber,
+    oldHospitalId,
     unit,
     name,
     age,
@@ -306,6 +318,15 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
       );
     } else if (isInserting) {
       context.missing(_hospitalNumberMeta);
+    }
+    if (data.containsKey('old_hospital_id')) {
+      context.handle(
+        _oldHospitalIdMeta,
+        oldHospitalId.isAcceptableOrUnknown(
+          data['old_hospital_id']!,
+          _oldHospitalIdMeta,
+        ),
+      );
     }
     if (data.containsKey('unit')) {
       context.handle(
@@ -496,6 +517,10 @@ class $PatientsTable extends Patients with TableInfo<$PatientsTable, Patient> {
         DriftSqlType.string,
         data['${effectivePrefix}hospital_number'],
       )!,
+      oldHospitalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}old_hospital_id'],
+      ),
       unit: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}unit'],
@@ -585,6 +610,7 @@ class Patient extends DataClass implements Insertable<Patient> {
   final int id;
   final String serialNumber;
   final String hospitalNumber;
+  final String? oldHospitalId;
   final String unit;
   final String name;
   final int age;
@@ -608,6 +634,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     required this.id,
     required this.serialNumber,
     required this.hospitalNumber,
+    this.oldHospitalId,
     required this.unit,
     required this.name,
     required this.age,
@@ -634,6 +661,9 @@ class Patient extends DataClass implements Insertable<Patient> {
     map['id'] = Variable<int>(id);
     map['serial_number'] = Variable<String>(serialNumber);
     map['hospital_number'] = Variable<String>(hospitalNumber);
+    if (!nullToAbsent || oldHospitalId != null) {
+      map['old_hospital_id'] = Variable<String>(oldHospitalId);
+    }
     map['unit'] = Variable<String>(unit);
     map['name'] = Variable<String>(name);
     map['age'] = Variable<int>(age);
@@ -677,6 +707,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       id: Value(id),
       serialNumber: Value(serialNumber),
       hospitalNumber: Value(hospitalNumber),
+      oldHospitalId: oldHospitalId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(oldHospitalId),
       unit: Value(unit),
       name: Value(name),
       age: Value(age),
@@ -724,6 +757,7 @@ class Patient extends DataClass implements Insertable<Patient> {
       id: serializer.fromJson<int>(json['id']),
       serialNumber: serializer.fromJson<String>(json['serialNumber']),
       hospitalNumber: serializer.fromJson<String>(json['hospitalNumber']),
+      oldHospitalId: serializer.fromJson<String?>(json['oldHospitalId']),
       unit: serializer.fromJson<String>(json['unit']),
       name: serializer.fromJson<String>(json['name']),
       age: serializer.fromJson<int>(json['age']),
@@ -762,6 +796,7 @@ class Patient extends DataClass implements Insertable<Patient> {
       'id': serializer.toJson<int>(id),
       'serialNumber': serializer.toJson<String>(serialNumber),
       'hospitalNumber': serializer.toJson<String>(hospitalNumber),
+      'oldHospitalId': serializer.toJson<String?>(oldHospitalId),
       'unit': serializer.toJson<String>(unit),
       'name': serializer.toJson<String>(name),
       'age': serializer.toJson<int>(age),
@@ -790,6 +825,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     int? id,
     String? serialNumber,
     String? hospitalNumber,
+    Value<String?> oldHospitalId = const Value.absent(),
     String? unit,
     String? name,
     int? age,
@@ -813,6 +849,9 @@ class Patient extends DataClass implements Insertable<Patient> {
     id: id ?? this.id,
     serialNumber: serialNumber ?? this.serialNumber,
     hospitalNumber: hospitalNumber ?? this.hospitalNumber,
+    oldHospitalId: oldHospitalId.present
+        ? oldHospitalId.value
+        : this.oldHospitalId,
     unit: unit ?? this.unit,
     name: name ?? this.name,
     age: age ?? this.age,
@@ -854,6 +893,9 @@ class Patient extends DataClass implements Insertable<Patient> {
       hospitalNumber: data.hospitalNumber.present
           ? data.hospitalNumber.value
           : this.hospitalNumber,
+      oldHospitalId: data.oldHospitalId.present
+          ? data.oldHospitalId.value
+          : this.oldHospitalId,
       unit: data.unit.present ? data.unit.value : this.unit,
       name: data.name.present ? data.name.value : this.name,
       age: data.age.present ? data.age.value : this.age,
@@ -906,6 +948,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           ..write('id: $id, ')
           ..write('serialNumber: $serialNumber, ')
           ..write('hospitalNumber: $hospitalNumber, ')
+          ..write('oldHospitalId: $oldHospitalId, ')
           ..write('unit: $unit, ')
           ..write('name: $name, ')
           ..write('age: $age, ')
@@ -934,6 +977,7 @@ class Patient extends DataClass implements Insertable<Patient> {
     id,
     serialNumber,
     hospitalNumber,
+    oldHospitalId,
     unit,
     name,
     age,
@@ -961,6 +1005,7 @@ class Patient extends DataClass implements Insertable<Patient> {
           other.id == this.id &&
           other.serialNumber == this.serialNumber &&
           other.hospitalNumber == this.hospitalNumber &&
+          other.oldHospitalId == this.oldHospitalId &&
           other.unit == this.unit &&
           other.name == this.name &&
           other.age == this.age &&
@@ -986,6 +1031,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
   final Value<int> id;
   final Value<String> serialNumber;
   final Value<String> hospitalNumber;
+  final Value<String?> oldHospitalId;
   final Value<String> unit;
   final Value<String> name;
   final Value<int> age;
@@ -1009,6 +1055,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     this.id = const Value.absent(),
     this.serialNumber = const Value.absent(),
     this.hospitalNumber = const Value.absent(),
+    this.oldHospitalId = const Value.absent(),
     this.unit = const Value.absent(),
     this.name = const Value.absent(),
     this.age = const Value.absent(),
@@ -1033,6 +1080,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     this.id = const Value.absent(),
     required String serialNumber,
     required String hospitalNumber,
+    this.oldHospitalId = const Value.absent(),
     required String unit,
     required String name,
     required int age,
@@ -1067,6 +1115,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Expression<int>? id,
     Expression<String>? serialNumber,
     Expression<String>? hospitalNumber,
+    Expression<String>? oldHospitalId,
     Expression<String>? unit,
     Expression<String>? name,
     Expression<int>? age,
@@ -1091,6 +1140,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
       if (id != null) 'id': id,
       if (serialNumber != null) 'serial_number': serialNumber,
       if (hospitalNumber != null) 'hospital_number': hospitalNumber,
+      if (oldHospitalId != null) 'old_hospital_id': oldHospitalId,
       if (unit != null) 'unit': unit,
       if (name != null) 'name': name,
       if (age != null) 'age': age,
@@ -1121,6 +1171,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     Value<int>? id,
     Value<String>? serialNumber,
     Value<String>? hospitalNumber,
+    Value<String?>? oldHospitalId,
     Value<String>? unit,
     Value<String>? name,
     Value<int>? age,
@@ -1145,6 +1196,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
       id: id ?? this.id,
       serialNumber: serialNumber ?? this.serialNumber,
       hospitalNumber: hospitalNumber ?? this.hospitalNumber,
+      oldHospitalId: oldHospitalId ?? this.oldHospitalId,
       unit: unit ?? this.unit,
       name: name ?? this.name,
       age: age ?? this.age,
@@ -1179,6 +1231,9 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
     }
     if (hospitalNumber.present) {
       map['hospital_number'] = Variable<String>(hospitalNumber.value);
+    }
+    if (oldHospitalId.present) {
+      map['old_hospital_id'] = Variable<String>(oldHospitalId.value);
     }
     if (unit.present) {
       map['unit'] = Variable<String>(unit.value);
@@ -1254,6 +1309,7 @@ class PatientsCompanion extends UpdateCompanion<Patient> {
           ..write('id: $id, ')
           ..write('serialNumber: $serialNumber, ')
           ..write('hospitalNumber: $hospitalNumber, ')
+          ..write('oldHospitalId: $oldHospitalId, ')
           ..write('unit: $unit, ')
           ..write('name: $name, ')
           ..write('age: $age, ')
@@ -6621,6 +6677,7 @@ typedef $$PatientsTableCreateCompanionBuilder =
       Value<int> id,
       required String serialNumber,
       required String hospitalNumber,
+      Value<String?> oldHospitalId,
       required String unit,
       required String name,
       required int age,
@@ -6646,6 +6703,7 @@ typedef $$PatientsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> serialNumber,
       Value<String> hospitalNumber,
+      Value<String?> oldHospitalId,
       Value<String> unit,
       Value<String> name,
       Value<int> age,
@@ -6787,6 +6845,11 @@ class $$PatientsTableFilterComposer
 
   ColumnFilters<String> get hospitalNumber => $composableBuilder(
     column: $table.hospitalNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get oldHospitalId => $composableBuilder(
+    column: $table.oldHospitalId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7011,6 +7074,11 @@ class $$PatientsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get oldHospitalId => $composableBuilder(
+    column: $table.oldHospitalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get unit => $composableBuilder(
     column: $table.unit,
     builder: (column) => ColumnOrderings(column),
@@ -7126,6 +7194,11 @@ class $$PatientsTableAnnotationComposer
 
   GeneratedColumn<String> get hospitalNumber => $composableBuilder(
     column: $table.hospitalNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get oldHospitalId => $composableBuilder(
+    column: $table.oldHospitalId,
     builder: (column) => column,
   );
 
@@ -7351,6 +7424,7 @@ class $$PatientsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> serialNumber = const Value.absent(),
                 Value<String> hospitalNumber = const Value.absent(),
+                Value<String?> oldHospitalId = const Value.absent(),
                 Value<String> unit = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> age = const Value.absent(),
@@ -7374,6 +7448,7 @@ class $$PatientsTableTableManager
                 id: id,
                 serialNumber: serialNumber,
                 hospitalNumber: hospitalNumber,
+                oldHospitalId: oldHospitalId,
                 unit: unit,
                 name: name,
                 age: age,
@@ -7399,6 +7474,7 @@ class $$PatientsTableTableManager
                 Value<int> id = const Value.absent(),
                 required String serialNumber,
                 required String hospitalNumber,
+                Value<String?> oldHospitalId = const Value.absent(),
                 required String unit,
                 required String name,
                 required int age,
@@ -7422,6 +7498,7 @@ class $$PatientsTableTableManager
                 id: id,
                 serialNumber: serialNumber,
                 hospitalNumber: hospitalNumber,
+                oldHospitalId: oldHospitalId,
                 unit: unit,
                 name: name,
                 age: age,
