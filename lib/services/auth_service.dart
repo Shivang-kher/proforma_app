@@ -24,6 +24,7 @@ class AuthService extends ChangeNotifier {
   bool _locked  = true;
   bool _pinSet  = false;
   DateTime? _backgroundAt;
+  bool _biometricInProgress = false;
 
   bool get isLocked => _locked;
   bool get isPinSet => _pinSet;
@@ -62,9 +63,13 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<bool> authenticateWithBiometrics() async {
+    // Prevent concurrent biometric prompts — iOS shows two overlapping system
+    // dialogs if authenticate() is called before the previous call resolves.
+    if (_biometricInProgress) return false;
     // Biometric must respect the same lockout as PIN — an attacker could
     // otherwise bypass progressive lockout by force-quitting and relaunching.
     if (await lockoutRemaining() != null) return false;
+    _biometricInProgress = true;
     try {
       final ok = await _localAuth.authenticate(
         localizedReason: 'Unlock Proforma to access patient data',
@@ -80,6 +85,8 @@ class AuthService extends ChangeNotifier {
       return ok;
     } catch (_) {
       return false;
+    } finally {
+      _biometricInProgress = false;
     }
   }
 
@@ -144,6 +151,10 @@ class AuthService extends ChangeNotifier {
 
   Future<void> onForeground() async {
     if (!_pinSet) return;
+    // Skip relock check while a biometric prompt is active — iOS fires the
+    // paused/resumed lifecycle pair around the system Face ID dialog, which
+    // would otherwise start a spurious relock timer mid-authentication.
+    if (_biometricInProgress) return;
     // Prefer the in-memory value (reliable on warm resume); fall back to
     // Keychain (needed after a cold start where onBackground ran in a prior process).
     final bgTime = _backgroundAt ??

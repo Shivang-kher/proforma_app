@@ -17,6 +17,7 @@ class _LockScreenState extends State<LockScreen>
   bool _showPin = false;
   String _pin = '';
   bool _checking = false;
+  bool _biometricChecking = false;
   Duration? _lockout;
   Timer? _lockoutTimer;
   late AnimationController _shake;
@@ -55,8 +56,15 @@ class _LockScreenState extends State<LockScreen>
   }
 
   Future<void> _tryBiometric() async {
+    if (_biometricChecking) return;
     if (!await AuthService.instance.canUseBiometrics) return;
-    await AuthService.instance.authenticateWithBiometrics();
+    if (!mounted) return;
+    setState(() => _biometricChecking = true);
+    try {
+      await AuthService.instance.authenticateWithBiometrics();
+    } finally {
+      if (mounted) setState(() => _biometricChecking = false);
+    }
   }
 
   void _onKey(String digit) {
@@ -122,16 +130,25 @@ class _LockScreenState extends State<LockScreen>
         ),
         const Spacer(flex: 2),
         GestureDetector(
-          onTap: _tryBiometric,
+          onTap: _biometricChecking ? null : _tryBiometric,
           child: Container(
             width: 84,
             height: 84,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: cs.primary, width: 2),
-              color: cs.primary.withValues(alpha: 0.08),
+              border: Border.all(
+                color: _biometricChecking ? cs.outline : cs.primary,
+                width: 2,
+              ),
+              color: (_biometricChecking ? cs.outline : cs.primary)
+                  .withValues(alpha: 0.08),
             ),
-            child: Icon(Icons.face_rounded, size: 46, color: cs.primary),
+            child: _biometricChecking
+                ? Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: cs.outline),
+                  )
+                : Icon(Icons.face_rounded, size: 46, color: cs.primary),
           ),
         ),
         const SizedBox(height: 16),

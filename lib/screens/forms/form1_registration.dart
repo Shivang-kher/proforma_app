@@ -27,6 +27,7 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
   // Controllers
   final _serialNo = TextEditingController();
   final _hospitalNo = TextEditingController();
+  final _oldHospitalId = TextEditingController();
   final _unit = TextEditingController();
   final _name = TextEditingController();
   final _age = TextEditingController();
@@ -59,6 +60,7 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
     setState(() {
       _serialNo.text = p.serialNumber;
       _hospitalNo.text = p.hospitalNumber;
+      _oldHospitalId.text = p.oldHospitalId ?? '';
       _unit.text = p.unit;
       _name.text = p.name;
       _age.text = p.age.toString();
@@ -91,6 +93,7 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
     final companion = PatientsCompanion.insert(
       serialNumber: _serialNo.text.trim(),
       hospitalNumber: _hospitalNo.text.trim(),
+      oldHospitalId: Value(_oldHospitalId.text.trim().isEmpty ? null : _oldHospitalId.text.trim()),
       unit: _unit.text.trim(),
       name: _name.text.trim(),
       age: int.parse(_age.text.trim()),
@@ -170,6 +173,7 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
             const FormSectionHeader(title: 'Patient Information'),
             LabeledTextField(label: 'Serial Number', controller: _serialNo, required: true),
             LabeledTextField(label: 'Hospital Number', controller: _hospitalNo, required: true),
+            LabeledTextField(label: 'Old Hospital ID', controller: _oldHospitalId),
             LabeledTextField(label: 'Unit', controller: _unit, required: true),
             LabeledTextField(label: 'Name', controller: _name, required: true),
             LabeledTextField(
@@ -354,6 +358,7 @@ class _Form1RegistrationState extends ConsumerState<Form1Registration> {
     for (final c in [
       _serialNo,
       _hospitalNo,
+      _oldHospitalId,
       _unit,
       _name,
       _age,
