@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'providers/database_provider.dart';
 import 'router.dart';
 import 'screens/auth/lock_screen.dart';
 import 'screens/auth/pin_setup_screen.dart';
+import 'screens/shell/app_shell.dart';
+import 'screens/study/task_providers.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
 import 'services/sync_service.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,11 +24,17 @@ void main() async {
   await NotificationService.instance.init();
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey);
   await AuthService.instance.init();
-  runApp(const ProviderScope(child: ProformaApp()));
+  // Resolved before the first frame so the app opens directly on the module
+  // you left it in, with no flash of the default one.
+  final startLocation = await lastModulePath();
+  runApp(ProviderScope(
+    child: ProformaApp(router: createRouter(initialLocation: startLocation)),
+  ));
 }
 
 class ProformaApp extends ConsumerStatefulWidget {
-  const ProformaApp({super.key});
+  const ProformaApp({super.key, required this.router});
+  final GoRouter router;
 
   @override
   ConsumerState<ProformaApp> createState() => _ProformaAppState();
@@ -37,6 +47,8 @@ class _ProformaAppState extends ConsumerState<ProformaApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(SyncService.instance.init(ref.read(databaseProvider)));
+    // iOS drops scheduled notifications across reinstalls, so rebuild them.
+    unawaited(ref.read(taskActionsProvider).rearmAll());
   }
 
   @override
@@ -60,21 +72,8 @@ class _ProformaAppState extends ConsumerState<ProformaApp>
     return MaterialApp.router(
       title: 'Proforma',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A56DB),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A56DB),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      routerConfig: router,
+      theme: AppTheme.light,
+      routerConfig: widget.router,
       builder: (context, child) {
         return ListenableBuilder(
           listenable: AuthService.instance,

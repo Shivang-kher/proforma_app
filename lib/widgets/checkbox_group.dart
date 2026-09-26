@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import 'choice_pill.dart';
 
 class CheckboxGroup extends StatelessWidget {
   const CheckboxGroup({
@@ -21,29 +23,27 @@ class CheckboxGroup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
+          Text(label, style: kFieldLabel()),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
-            runSpacing: 4,
-            children: options.map((option) {
-              final isSelected = selected.contains(option);
-              return FilterChip(
-                label: Text(option),
-                selected: isSelected,
-                onSelected: (val) {
-                  final updated = List<String>.from(selected);
-                  val ? updated.add(option) : updated.remove(option);
-                  onChanged(updated);
-                },
-              );
-            }).toList(),
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                ChoicePill(
+                  label: option,
+                  selected: selected.contains(option),
+                  onTap: () {
+                    final updated = List<String>.from(selected);
+                    if (updated.contains(option)) {
+                      updated.remove(option);
+                    } else {
+                      updated.add(option);
+                    }
+                    onChanged(updated);
+                  },
+                ),
+            ],
           ),
         ],
       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+import 'choice_pill.dart';
 
 class LabeledRadioGroup extends StatelessWidget {
   const LabeledRadioGroup({
@@ -21,35 +23,19 @@ class LabeledRadioGroup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
+          Text(label, style: kFieldLabel()),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
-            children: options.map((option) {
-              final isSelected = selected == option;
-              final cs = Theme.of(context).colorScheme;
-              return ChoiceChip(
-                label: Text(option),
-                selected: isSelected,
-                onSelected: (_) => onChanged(option),
-                selectedColor: cs.primary,
-                backgroundColor: cs.surfaceContainerHighest,
-                labelStyle: TextStyle(
-                  color: isSelected ? cs.onPrimary : cs.onSurface,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.normal,
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                ChoicePill(
+                  label: option,
+                  selected: selected == option,
+                  onTap: () => onChanged(option),
                 ),
-                side: BorderSide(
-                  color: isSelected ? cs.primary : cs.outlineVariant,
-                ),
-              );
-            }).toList(),
+            ],
           ),
         ],
       ),

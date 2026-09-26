@@ -7,6 +7,8 @@ import '../../providers/database_provider.dart';
 import '../../db/database.dart';
 import '../../services/notification_service.dart';
 import '../../services/sync_service.dart';
+import '../notifications/notification_priming_screen.dart';
+import '../../widgets/choice_pill.dart';
 import '../../widgets/completion_badge.dart';
 
 class PatientDetailScreen extends ConsumerWidget {
@@ -16,7 +18,7 @@ class PatientDetailScreen extends ConsumerWidget {
   Future<void> _showReminderDialog(
       BuildContext context, Patient patient) async {
     final pending = await NotificationService.instance.pending();
-    final hasReminder = pending.any((n) => n.id == patientId);
+    final hasReminder = pending.any((n) => n.id == NotifIds.forPatient(patientId));
 
     if (!context.mounted) return;
 
@@ -39,7 +41,7 @@ class PatientDetailScreen extends ConsumerWidget {
         ),
       );
       if (cancel == true) {
-        await NotificationService.instance.cancel(patientId);
+        await NotificationService.instance.cancel(NotifIds.forPatient(patientId));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Reminder cancelled')),
@@ -49,51 +51,12 @@ class PatientDetailScreen extends ConsumerWidget {
       return;
     }
 
-    // Ask permission first if not yet granted
-    final granted = await NotificationService.instance.requestPermission();
-    if (!granted) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Enable notifications in Settings to set reminders.')),
-        );
-      }
-      return;
+    if (!NotificationService.instance.isGranted) {
+      final granted = await showNotificationPriming(context);
+      if (!granted) return;
     }
 
     if (!context.mounted) return;
-
-    // Show test option alongside time picker
-    final choice = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Set reminder'),
-        content: const Text('Choose a daily time, or send a test notification in 5 seconds.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, 'test'),
-            child: const Text('Test (5s)'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'pick'),
-            child: const Text('Pick time'),
-          ),
-        ],
-      ),
-    );
-
-    if (choice == null || !context.mounted) return;
-
-    if (choice == 'test') {
-      await NotificationService.instance.testIn5Seconds(patient.name);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Background the app now — notification fires in 5 s')),
-        );
-      }
-      return;
-    }
 
     TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -143,7 +106,7 @@ class PatientDetailScreen extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     final db = ref.read(databaseProvider);
-    await NotificationService.instance.cancel(patientId);
+    await NotificationService.instance.cancel(NotifIds.forPatient(patientId));
     await db.deletePatientCascade(patientId);
     SyncService.instance.deleteFromCloud(patientId); // fire and forget
     if (context.mounted) context.go('/');
@@ -169,7 +132,7 @@ class PatientDetailScreen extends ConsumerWidget {
                 future: NotificationService.instance.pending(),
                 builder: (context, snap) {
                   final hasReminder =
-                      snap.data?.any((n) => n.id == patientId) ?? false;
+                      snap.data?.any((n) => n.id == NotifIds.forPatient(patientId)) ?? false;
                   return IconButton(
                     icon: Icon(hasReminder
                         ? Icons.notifications_active_rounded
@@ -195,10 +158,11 @@ class PatientDetailScreen extends ConsumerWidget {
             children: [
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Chip(label: Text('Age: ${patient.age}')),
-                  Chip(label: Text(patient.menstrualStatus)),
-                  Chip(label: Text('Parity: ${patient.parity}')),
+                  InfoPill(label: 'Age ${patient.age}'),
+                  InfoPill(label: patient.menstrualStatus),
+                  InfoPill(label: 'Parity ${patient.parity}'),
                 ],
               ),
               // ── Phone numbers ──────────────────────────

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'screens/shell_screen.dart';
+import 'screens/shell/app_shell.dart';
+import 'screens/shell/branch_container.dart';
 import 'screens/home/patient_list_screen.dart';
 import 'screens/patient/patient_detail_screen.dart';
 import 'screens/forms/form1_registration.dart';
@@ -10,29 +11,51 @@ import 'screens/forms/form4_cytoreduction.dart';
 import 'screens/forms/form5_relapse.dart';
 import 'screens/export/export_screen.dart';
 import 'screens/insights/insights_screen.dart';
+import 'screens/exercise/exercise_month_screen.dart';
+import 'screens/exercise/exercise_stats_screen.dart';
+import 'screens/study/study_month_screen.dart';
+import 'screens/study/task_list_screen.dart';
+import 'screens/study/study_progress_screen.dart';
 
-final router = GoRouter(
-  initialLocation: '/',
-  routes: [
-    ShellRoute(
-      builder: (_, state, child) => ShellScreen(child: child),
+/// One branch per destination. Each gets its own navigator, so branches can be
+/// animated between and each keeps its own state while parked.
+StatefulShellBranch _branch(String path, Widget screen) => StatefulShellBranch(
       routes: [
         GoRoute(
-          path: '/',
-          builder: (_, _) => const PatientListScreen(),
+          path: path,
+          pageBuilder: (_, state) =>
+              NoTransitionPage(key: state.pageKey, child: screen),
         ),
-        GoRoute(
-          path: '/insights',
-          builder: (_, _) => const InsightsScreen(),
-        ),
-        GoRoute(
-          path: '/export',
-          builder: (_, _) => const ExportScreen(),
-        ),
+      ],
+    );
+
+GoRouter createRouter({String initialLocation = '/'}) => GoRouter(
+  initialLocation: initialLocation,
+  routes: [
+    // One shell across all three modules — branch order left-to-right matches
+    // the on-screen order, which is what gives transitions their direction.
+    StatefulShellRoute(
+      builder: (context, state, shell) => AppShell(shell: shell),
+      navigatorContainerBuilder: (_, shell, children) => BranchContainer(
+        currentIndex: shell.currentIndex,
+        children: children,
+      ),
+      branches: [
+        // Clinical
+        _branch('/', const PatientListScreen()),
+        _branch('/insights', const InsightsScreen()),
+        _branch('/export', const ExportScreen()),
+        // Exercise
+        _branch('/exercise', const ExerciseMonthScreen()),
+        _branch('/exercise/stats', const ExerciseStatsScreen()),
+        // Study / Work
+        _branch('/study', const StudyMonthScreen()),
+        _branch('/study/tasks', const TaskListScreen()),
+        _branch('/study/progress', const StudyProgressScreen()),
       ],
     ),
 
-    // Full-screen routes (no bottom nav)
+    // ── Full-screen routes (no shell/module strip) ───────────
     GoRoute(
       path: '/patient/new',
       builder: (_, _) => const Form1Registration(),
@@ -77,4 +100,4 @@ final router = GoRouter(
   errorBuilder: (_, state) => Scaffold(
     body: Center(child: Text('Page not found: ${state.error}')),
   ),
-);
+    );
