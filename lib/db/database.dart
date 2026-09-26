@@ -136,6 +136,33 @@ class RelapseFollowups extends Table {
   DateTimeColumn get recordedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+class ExerciseEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get date => dateTime()(); // day the session belongs to
+  TextColumn get exerciseType => text()(); // e.g. "Push-ups", "Running"
+  IntColumn get sets => integer().nullable()();
+  IntColumn get reps => integer().nullable()();
+  RealColumn get weightKg => real().nullable()();
+  IntColumn get durationMinutes => integer().nullable()();
+  IntColumn get minuteOfDay => integer().nullable()(); // clock time, hour*60+min
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+class Tasks extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get category => text().withDefault(const Constant('study'))(); // 'study' | 'work' | 'personal'
+  DateTimeColumn get dueDate => dateTime().nullable()();
+  IntColumn get dueMinuteOfDay => integer().nullable()(); // hour*60+minute
+  IntColumn get reminderLeadMinutes => integer().nullable()(); // null = no reminder
+  BoolColumn get isDone => boolean().withDefault(const Constant(false))();
+  IntColumn get notificationId => integer().nullable()();
+  DateTimeColumn get completedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 class SyncQueue extends Table {
   IntColumn get id => integer().autoIncrement()();
   // 'patients' | 'pre_chemo' | 'post_chemo' | 'cytoreduction' | 'relapse'
@@ -159,12 +186,14 @@ class SyncQueue extends Table {
   CytoreductionCtFindings,
   RelapseFollowups,
   SyncQueue,
+  ExerciseEntries,
+  Tasks,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -189,6 +218,17 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.addColumn(patients, patients.oldHospitalId);
+          }
+          if (from < 6) {
+            await m.createTable(exerciseEntries);
+          }
+          if (from < 7) {
+            await m.createTable(tasks);
+          }
+          if (from < 8) {
+            await m.addColumn(exerciseEntries, exerciseEntries.weightKg);
+            await m.addColumn(exerciseEntries, exerciseEntries.minuteOfDay);
+            await m.addColumn(tasks, tasks.reminderLeadMinutes);
           }
         },
       );
@@ -368,6 +408,87 @@ class AppDatabase extends _$AppDatabase {
   Future<void> markSyncDone(int id) =>
       (update(syncQueue)..where((q) => q.id.equals(id)))
           .write(const SyncQueueCompanion(done: Value(true)));
+
+  // ── Exercise ──
+  Stream<List<ExerciseEntry>> watchExerciseEntries() =>
+      (select(exerciseEntries)
+            ..orderBy([(t) => OrderingTerm.desc(t.date)]))
+          .watch();
+
+  /// All entries whose [date] falls inside [from]..[to] (exclusive end).
+  Stream<List<ExerciseEntry>> watchExerciseEntriesInRange(DateTime from, DateTime to) =>
+      (select(exerciseEntries)
+            ..where((t) =>
+                t.date.isBiggerOrEqualValue(from) & t.date.isSmallerThanValue(to))
+            ..orderBy([
+              (t) => OrderingTerm.asc(t.minuteOfDay),
+              (t) => OrderingTerm.asc(t.id),
+            ]))
+          .watch();
+
+  Future<int> insertExercise(ExerciseEntriesCompanion entry) =>
+      into(exerciseEntries).insert(entry);
+
+  Future<bool> updateExercise(ExerciseEntriesCompanion entry) =>
+      update(exerciseEntries).replace(entry);
+
+  Future<int> deleteExercise(int id) =>
+      (delete(exerciseEntries)..where((t) => t.id.equals(id))).go();
+
+  // ── Tasks ──
+  Stream<List<Task>> watchTasks() =>
+      (select(tasks)
+            ..orderBy([
+              (t) => OrderingTerm.asc(t.isDone),
+              (t) => OrderingTerm.asc(t.dueDate),
+            ]))
+          .watch();
+
+  Future<List<Task>> getAllTasks() =>
+      (select(tasks)
+            ..orderBy([
+              (t) => OrderingTerm.asc(t.isDone),
+              (t) => OrderingTerm.asc(t.dueDate),
+            ]))
+          .get();
+
+  Future<int> insertTask(TasksCompanion entry) =>
+      into(tasks).insert(entry);
+
+  Future<bool> updateTask(TasksCompanion entry) =>
+      update(tasks).replace(entry);
+
+  Future<int> deleteTask(int id) =>
+      (delete(tasks)..where((t) => t.id.equals(id))).go();
+
+  Future<void> setTaskDone(int id, bool done) =>
+      (update(tasks)..where((t) => t.id.equals(id))).write(TasksCompanion(
+        isDone: Value(done),
+        completedAt: Value(done ? DateTime.now() : null),
+      ));
+
+  /// Open tasks due on [day]. Drives the "no plans today" nudge.
+  Future<int> openTaskCountOn(DateTime day) async {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    final count = countAll();
+    final row = await (selectOnly(tasks)
+          ..addColumns([count])
+          ..where(tasks.isDone.equals(false) &
+              tasks.dueDate.isBiggerOrEqualValue(start) &
+              tasks.dueDate.isSmallerThanValue(end)))
+        .getSingle();
+    return row.read(count) ?? 0;
+  }
+
+  /// Tasks with a future reminder — used to re-arm notifications on launch.
+  Future<List<Task>> getTasksNeedingReminder() =>
+      (select(tasks)
+            ..where((t) =>
+                t.isDone.equals(false) &
+                t.dueDate.isNotNull() &
+                t.reminderLeadMinutes.isNotNull()))
+          .get();
 }
 
 const _backupChannel = MethodChannel('proforma/backup');

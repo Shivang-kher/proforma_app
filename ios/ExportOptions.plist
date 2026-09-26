@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>N4J573CLJ7</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution: Shivang Kher (N4J573CLJ7)</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.shivangkher.proformaApp</key>
+        <string>e3b53bba-4239-4e0c-90c5-50bd19d65f82</string>
+    </dict>
+    <key>compileBitcode</key>
+    <false/>
+</dict>
+</plist>
