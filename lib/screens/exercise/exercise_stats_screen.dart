@@ -16,17 +16,19 @@ class ExerciseStatsScreen extends ConsumerWidget {
   /// Consecutive days with at least one entry, counting back from today.
   /// A streak stays alive until the end of today, so an unlogged today does
   /// not immediately zero out yesterday's run.
+  /// Steps by calendar day, not by a fixed 24h duration — across a DST change
+  /// the latter lands on 23:00 of the neighbouring day and never matches a
+  /// midnight-normalised key, silently cutting the streak short.
+  static DateTime _prevDay(DateTime d) => DateTime(d.year, d.month, d.day - 1);
+
   static int _streak(Set<DateTime> loggedDays) {
     if (loggedDays.isEmpty) return 0;
     final today = _dayOf(DateTime.now());
-    var cursor = loggedDays.contains(today)
-        ? today
-        : today.subtract(const Duration(days: 1));
-    if (!loggedDays.contains(cursor)) return 0;
+    var cursor = loggedDays.contains(today) ? today : _prevDay(today);
     var count = 0;
     while (loggedDays.contains(cursor)) {
       count++;
-      cursor = cursor.subtract(const Duration(days: 1));
+      cursor = _prevDay(cursor);
     }
     return count;
   }
@@ -45,9 +47,10 @@ class ExerciseStatsScreen extends ConsumerWidget {
     final totalMinutes = entries.fold<int>(0, (s, e) => s + (e.durationMinutes ?? 0));
 
     // Last 8 weeks, Monday-anchored.
-    final thisMonday = _dayOf(now).subtract(Duration(days: now.weekday - 1));
+    final thisMonday = DateTime(now.year, now.month, now.day - (now.weekday - 1));
     final weeks = List.generate(8, (i) {
-      final start = thisMonday.subtract(Duration(days: 7 * (7 - i)));
+      final start = DateTime(
+          thisMonday.year, thisMonday.month, thisMonday.day - 7 * (7 - i));
       final end = start.add(const Duration(days: 7));
       final count = entries
           .where((e) => !e.date.isBefore(start) && e.date.isBefore(end))

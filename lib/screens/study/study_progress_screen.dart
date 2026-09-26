@@ -14,7 +14,7 @@ class StudyProgressScreen extends ConsumerWidget {
     final tasks = ref.watch(tasksProvider).valueOrNull ?? const <Task>[];
     final now = DateTime.now();
     final today = _dayOf(now);
-    final weekStart = today.subtract(Duration(days: now.weekday - 1));
+    final weekStart = DateTime(today.year, today.month, today.day - (now.weekday - 1));
 
     final done = tasks.where((t) => t.isDone && t.completedAt != null).toList();
     final open = tasks.where((t) => !t.isDone).toList();
@@ -23,7 +23,8 @@ class StudyProgressScreen extends ConsumerWidget {
         done.where((t) => !t.completedAt!.isBefore(weekStart)).length;
 
     // Last 7 days of completions.
-    final days = List.generate(7, (i) => today.subtract(Duration(days: 6 - i)));
+    final days = List.generate(
+        7, (i) => DateTime(today.year, today.month, today.day - (6 - i)));
     final counts = {for (final d in days) d: 0};
     for (final t in done) {
       final d = _dayOf(t.completedAt!);
@@ -127,7 +128,8 @@ class StudyProgressScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('By category', style: kArchivo(size: 13, weight: FontWeight.w600)),
+              Text('By category · all time',
+                  style: kArchivo(size: 13, weight: FontWeight.w600)),
               const SizedBox(height: 12),
               if (done.isEmpty)
                 Text('Nothing completed yet', style: kMetaText(color: kFaint))

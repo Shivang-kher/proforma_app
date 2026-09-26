@@ -31,6 +31,7 @@ class _BranchContainerState extends State<BranchContainer>
   late int _current = widget.currentIndex;
   int? _outgoing;
   double _direction = 1;
+  int _transition = 0;
 
   @override
   void didUpdateWidget(covariant BranchContainer oldWidget) {
@@ -39,8 +40,14 @@ class _BranchContainerState extends State<BranchContainer>
       _direction = widget.currentIndex > _current ? 1 : -1;
       _outgoing = _current;
       _current = widget.currentIndex;
+
+      // TickerFuture completes on cancel too, so restarting the controller
+      // still fires the previous whenComplete. Without this guard a fast
+      // second switch clears the newer transition's outgoing branch mid-flight
+      // and it pops out instead of drifting.
+      final token = ++_transition;
       _controller.forward(from: 0).whenComplete(() {
-        if (mounted) setState(() => _outgoing = null);
+        if (mounted && token == _transition) setState(() => _outgoing = null);
       });
     }
   }

@@ -14,8 +14,13 @@ class NotifIds {
   static const taskMax = 799999;
   static const dailyNudge = 900001;
 
-  /// Tasks are keyed by row id, so re-scheduling replaces rather than duplicates.
+  /// Rows are keyed by id so re-scheduling replaces rather than duplicates.
+  /// Modulo rather than clamp — clamping would collapse every out-of-range id
+  /// onto one slot, where each new reminder silently overwrites the last.
   static int forTask(int taskId) => taskMin + (taskId % (taskMax - taskMin));
+
+  static int forPatient(int patientId) =>
+      patientMin + (patientId % (patientMax - patientMin));
 }
 
 class NotificationService {
@@ -57,12 +62,6 @@ class NotificationService {
 
     final prefs = await SharedPreferences.getInstance();
     _granted = prefs.getBool(_grantedKey) ?? false;
-  }
-
-  /// Whether the user has already seen the in-app priming screen.
-  Future<bool> hasBeenPrimed() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_primedKey) ?? false;
   }
 
   Future<void> markPrimed() async {
@@ -142,20 +141,32 @@ class NotificationService {
     await prefs.setInt(_nudgeHourKey, hour);
   }
 
-  /// Arms tomorrow's nudge. Called with [hasTasksToday] so a day that is
-  /// already planned never gets nagged.
-  Future<void> refreshDailyNudge({required bool hasTasksToday}) async {
+  /// Arms the nudge on the next day that has no open tasks.
+  ///
+  /// [openTaskCountOn] is queried for the day actually being targeted — a
+  /// count for *today* says nothing about the day the notification lands on,
+  /// so using one would fire "Nothing scheduled today" on a planned day.
+  Future<void> refreshDailyNudge({
+    required Future<int> Function(DateTime day) openTaskCountOn,
+  }) async {
     await _plugin.cancel(NotifIds.dailyNudge);
     if (!_granted) return;
 
     final hour = await nudgeHour();
     final now = tz.TZDateTime.now(tz.local);
-    var fireAt = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
+    var earliest = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
+    if (!earliest.isAfter(now)) earliest = earliest.add(const Duration(days: 1));
 
-    // If today is already planned, or its slot has passed, aim at tomorrow.
-    if (hasTasksToday || !fireAt.isAfter(now)) {
-      fireAt = fireAt.add(const Duration(days: 1));
+    tz.TZDateTime? fireAt;
+    for (var i = 0; i < 7; i++) {
+      final day = earliest.add(Duration(days: i));
+      if (await openTaskCountOn(DateTime(day.year, day.month, day.day)) == 0) {
+        fireAt = day;
+        break;
+      }
     }
+    // Every day in the next week is planned — nothing to nag about.
+    if (fireAt == null) return;
 
     await _plugin.zonedSchedule(
       NotifIds.dailyNudge,
@@ -184,7 +195,7 @@ class NotificationService {
     if (scheduled.isBefore(now)) scheduled = scheduled.add(const Duration(days: 1));
 
     await _plugin.zonedSchedule(
-      patientId.clamp(NotifIds.patientMin, NotifIds.patientMax),
+      NotifIds.forPatient(patientId),
       'Follow-up reminder',
       'A patient follow-up is due. Open Proforma to view.',
       scheduled,

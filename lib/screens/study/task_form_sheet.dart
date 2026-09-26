@@ -121,34 +121,39 @@ class _TaskFormSheetState extends ConsumerState<TaskFormSheet> {
       reminderLeadMinutes: Value(lead),
     );
 
-    final int taskId;
-    if (widget.existing != null) {
-      taskId = widget.existing!.id;
-      await db.updateTask(companion.copyWith(
-        id: Value(taskId),
-        isDone: Value(widget.existing!.isDone),
-        completedAt: Value(widget.existing!.completedAt),
-      ));
-    } else {
-      taskId = await db.insertTask(companion);
-    }
+    // Without the finally, a throw anywhere below leaves _saving true and the
+    // button stuck on a spinner with no way to retry.
+    try {
+      final int taskId;
+      if (widget.existing != null) {
+        taskId = widget.existing!.id;
+        await db.updateTask(companion.copyWith(
+          id: Value(taskId),
+          isDone: Value(widget.existing!.isDone),
+          completedAt: Value(widget.existing!.completedAt),
+        ));
+      } else {
+        taskId = await db.insertTask(companion);
+      }
 
-    // Always clear first — editing may have removed or moved the reminder.
-    await notif.cancelTaskReminder(taskId);
-    if (canRemind) {
-      await notif.scheduleTaskReminder(
-        taskId: taskId,
-        title: title,
-        category: _category,
-        dueDate: _dueDate!,
-        dueMinuteOfDay: minuteOfDay,
-        leadMinutes: lead!,
-      );
-    }
-    final openToday = await db.openTaskCountOn(DateTime.now());
-    await notif.refreshDailyNudge(hasTasksToday: openToday > 0);
+      // Always clear first — editing may have removed or moved the reminder.
+      await notif.cancelTaskReminder(taskId);
+      if (canRemind) {
+        await notif.scheduleTaskReminder(
+          taskId: taskId,
+          title: title,
+          category: _category,
+          dueDate: _dueDate!,
+          dueMinuteOfDay: minuteOfDay,
+          leadMinutes: lead!,
+        );
+      }
+      await notif.refreshDailyNudge(openTaskCountOn: db.openTaskCountOn);
 
-    if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override

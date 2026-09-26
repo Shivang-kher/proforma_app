@@ -219,15 +219,21 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             await m.addColumn(patients, patients.oldHospitalId);
           }
+          // createTable emits the CURRENT column set, not the one the table
+          // had at that version — so a table created here is already at v8 and
+          // must skip the addColumn calls below, or SQLite raises
+          // "duplicate column name" and the database fails to open.
           if (from < 6) {
             await m.createTable(exerciseEntries);
           }
           if (from < 7) {
             await m.createTable(tasks);
           }
-          if (from < 8) {
+          if (from >= 6 && from < 8) {
             await m.addColumn(exerciseEntries, exerciseEntries.weightKg);
             await m.addColumn(exerciseEntries, exerciseEntries.minuteOfDay);
+          }
+          if (from >= 7 && from < 8) {
             await m.addColumn(tasks, tasks.reminderLeadMinutes);
           }
         },

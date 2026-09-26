@@ -8,8 +8,10 @@ import '../../widgets/month_calendar.dart';
 import 'exercise_log_sheet.dart';
 
 /// Entries for the month containing [month], keyed by that month's first day.
+/// autoDispose matters here — without it every month ever paged to keeps a live
+/// table-watching subscription that re-queries on each insert or delete.
 final exerciseMonthProvider =
-    StreamProvider.family<List<ExerciseEntry>, DateTime>((ref, month) {
+    StreamProvider.autoDispose.family<List<ExerciseEntry>, DateTime>((ref, month) {
   final from = DateTime(month.year, month.month, 1);
   final to = DateTime(month.year, month.month + 1, 1);
   return ref.watch(databaseProvider).watchExerciseEntriesInRange(from, to);

@@ -51,21 +51,49 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
       return list;
     }
 
-    final overdue = _filter == _Filter.done
-        ? <Task>[]
-        : bucket((t) => t.dueDate != null && _dayOf(t.dueDate!).isBefore(today));
-    final todayList = bucket((t) => t.dueDate != null && _dayOf(t.dueDate!) == today);
-    final tomorrowList = bucket((t) => t.dueDate != null && _dayOf(t.dueDate!) == tomorrow);
-    final later = bucket((t) =>
-        t.dueDate == null || _dayOf(t.dueDate!).isAfter(tomorrow));
+    final List<({String title, Color color, List<Task> items, bool overdue})> sections;
 
-    final sections = <({String title, Color color, List<Task> items, bool overdue})>[
-      (title: 'Overdue', color: kOverdue, items: overdue, overdue: true),
-      (title: 'Today', color: kMuted, items: todayList, overdue: false),
-      (title: 'Tomorrow', color: kMuted, items: tomorrowList, overdue: false),
-      (title: _filter == _Filter.done ? 'Completed' : 'Later',
-          color: kMuted, items: later, overdue: false),
-    ].where((s) => s.items.isNotEmpty).toList();
+    if (_filter == _Filter.done) {
+      // Completed tasks read as history, so they go in one list newest-first.
+      // Bucketing them by due date drops anything already past due — which is
+      // most of them.
+      final completed = visible.toList()
+        ..sort((a, b) => (b.completedAt ?? b.dueDate ?? DateTime(0))
+            .compareTo(a.completedAt ?? a.dueDate ?? DateTime(0)));
+      sections = [
+        (title: 'Completed', color: kMuted, items: completed, overdue: false),
+      ];
+    } else {
+      sections = <({String title, Color color, List<Task> items, bool overdue})>[
+        (
+          title: 'Overdue',
+          color: kOverdue,
+          items: bucket((t) => t.dueDate != null && _dayOf(t.dueDate!).isBefore(today)),
+          overdue: true,
+        ),
+        (
+          title: 'Today',
+          color: kMuted,
+          items: bucket((t) => t.dueDate != null && _dayOf(t.dueDate!) == today),
+          overdue: false,
+        ),
+        (
+          title: 'Tomorrow',
+          color: kMuted,
+          items: bucket((t) => t.dueDate != null && _dayOf(t.dueDate!) == tomorrow),
+          overdue: false,
+        ),
+        (
+          title: 'Later',
+          color: kMuted,
+          items: bucket((t) =>
+              t.dueDate == null || _dayOf(t.dueDate!).isAfter(tomorrow)),
+          overdue: false,
+        ),
+      ];
+    }
+
+    final visibleSections = sections.where((s) => s.items.isNotEmpty).toList();
 
     return Column(
       children: [
@@ -127,12 +155,12 @@ class _TaskListScreenState extends ConsumerState<TaskListScreen> {
         ),
 
         Expanded(
-          child: sections.isEmpty
+          child: visibleSections.isEmpty
               ? _EmptyState(filter: _filter)
               : ListView(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   children: [
-                    for (final s in sections) ...[
+                    for (final s in visibleSections) ...[
                       Padding(
                         padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
                         child: Text(

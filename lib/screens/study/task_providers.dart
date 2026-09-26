@@ -45,10 +45,8 @@ class TaskActions {
     );
   }
 
-  Future<void> _refreshNudge() async {
-    final count = await _db.openTaskCountOn(DateTime.now());
-    await NotificationService.instance.refreshDailyNudge(hasTasksToday: count > 0);
-  }
+  Future<void> _refreshNudge() => NotificationService.instance
+      .refreshDailyNudge(openTaskCountOn: _db.openTaskCountOn);
 
   /// Re-arms every pending reminder. iOS drops scheduled notifications after a
   /// reinstall or a long gap, so this runs once on launch.

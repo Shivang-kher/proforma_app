@@ -18,7 +18,7 @@ class PatientDetailScreen extends ConsumerWidget {
   Future<void> _showReminderDialog(
       BuildContext context, Patient patient) async {
     final pending = await NotificationService.instance.pending();
-    final hasReminder = pending.any((n) => n.id == patientId);
+    final hasReminder = pending.any((n) => n.id == NotifIds.forPatient(patientId));
 
     if (!context.mounted) return;
 
@@ -41,7 +41,7 @@ class PatientDetailScreen extends ConsumerWidget {
         ),
       );
       if (cancel == true) {
-        await NotificationService.instance.cancel(patientId);
+        await NotificationService.instance.cancel(NotifIds.forPatient(patientId));
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Reminder cancelled')),
@@ -106,7 +106,7 @@ class PatientDetailScreen extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     final db = ref.read(databaseProvider);
-    await NotificationService.instance.cancel(patientId);
+    await NotificationService.instance.cancel(NotifIds.forPatient(patientId));
     await db.deletePatientCascade(patientId);
     SyncService.instance.deleteFromCloud(patientId); // fire and forget
     if (context.mounted) context.go('/');
@@ -132,7 +132,7 @@ class PatientDetailScreen extends ConsumerWidget {
                 future: NotificationService.instance.pending(),
                 builder: (context, snap) {
                   final hasReminder =
-                      snap.data?.any((n) => n.id == patientId) ?? false;
+                      snap.data?.any((n) => n.id == NotifIds.forPatient(patientId)) ?? false;
                   return IconButton(
                     icon: Icon(hasReminder
                         ? Icons.notifications_active_rounded
